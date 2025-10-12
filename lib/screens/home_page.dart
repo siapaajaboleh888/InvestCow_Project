@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'menu_page.dart'; // Import halaman menu
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -29,22 +30,32 @@ class HomePage extends StatelessWidget {
               width: double.infinity,
               constraints: const BoxConstraints(maxWidth: 400),
               padding: const EdgeInsets.all(32),
-              child: const Column(
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  InvestCowIcon(), // Memanggil widget InvestCowIcon
-                  SizedBox(height: 32),
-                  Text(
-                    'InvestCow',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                      letterSpacing: 0.5,
+                  const InvestCowIcon(),
+                  const SizedBox(height: 32),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MenuPage(),
+                        ),
+                      );
+                    },
+                    child: const Text(
+                      'InvestCow',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                   ),
-                  SizedBox(height: 12),
-                  Text(
+                  const SizedBox(height: 12),
+                  const Text(
                     'Aplikasi Investasi Peternakan Sapi Modern',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -54,8 +65,8 @@ class HomePage extends StatelessWidget {
                       height: 1.5,
                     ),
                   ),
-                  SizedBox(height: 8),
-                  Text(
+                  const SizedBox(height: 8),
+                  const Text(
                     'InvestCow, Investasi Masa Depanku',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -87,7 +98,7 @@ class InvestCowIcon extends StatelessWidget {
         shape: BoxShape.circle,
         boxShadow: const [
           BoxShadow(
-            color: Color(0x6600BCD4), // Perbaikan opasitas
+            color: Color(0x6600BCD4),
             offset: Offset(0, 8),
             blurRadius: 10,
           ),
