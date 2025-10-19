@@ -9,7 +9,7 @@ class PengaturanPage extends StatefulWidget {
 
 class _PengaturanPageState extends State<PengaturanPage> {
   bool notifikasiAktif = true;
-  bool darkModeAktif = false;
+  bool darkModeAktif = true;
   bool lokasiAktif = true;
   String bahasa = 'Indonesia';
 
@@ -29,7 +29,7 @@ class _PengaturanPageState extends State<PengaturanPage> {
             title: const Text('Notifikasi Push'),
             subtitle: const Text('Terima notifikasi dari aplikasi'),
             value: notifikasiAktif,
-            activeColor: Colors.cyan[400],
+            activeThumbColor: Colors.cyan[400],
             onChanged: (value) {
               setState(() {
                 notifikasiAktif = value;
@@ -54,7 +54,7 @@ class _PengaturanPageState extends State<PengaturanPage> {
             title: const Text('Dark Mode'),
             subtitle: const Text('Gunakan tema gelap'),
             value: darkModeAktif,
-            activeColor: Colors.cyan[400],
+            activeThumbColor: Colors.cyan[400],
             onChanged: (value) {
               setState(() {
                 darkModeAktif = value;
@@ -87,7 +87,7 @@ class _PengaturanPageState extends State<PengaturanPage> {
             title: const Text('Layanan Lokasi'),
             subtitle: const Text('Izinkan akses lokasi'),
             value: lokasiAktif,
-            activeColor: Colors.cyan[400],
+            activeThumbColor: Colors.cyan[400],
             onChanged: (value) {
               setState(() {
                 lokasiAktif = value;

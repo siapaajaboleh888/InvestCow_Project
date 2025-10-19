@@ -21,3 +21,18 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/images/
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: assets/images/investcow.png
+
+  android: true
+  ios: true
+  web: false
+
+  android_12:
+    image: assets/images/investcow.png
+    color: "#FFFFFF"
