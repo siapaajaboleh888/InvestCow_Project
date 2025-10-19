@@ -4,6 +4,8 @@ import 'package:investcow_app/screens/home_page.dart';
 import 'package:investcow_app/screens/pasar_modal_page.dart';
 import 'package:investcow_app/screens/kunjungan_page.dart';
 import 'package:investcow_app/screens/akun_page.dart';
+import 'package:investcow_app/screens/login_page.dart';
+import 'package:investcow_app/services/auth_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,7 +36,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// ✅ CUSTOM SPLASH SCREEN (TANPA LOADING INDICATOR)
+// ✅ CUSTOM SPLASH SCREEN dengan Login Check
 class CustomSplashScreen extends StatefulWidget {
   const CustomSplashScreen({super.key});
 
@@ -46,6 +48,7 @@ class _CustomSplashScreenState extends State<CustomSplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
+  final _authService = AuthService();
 
   @override
   void initState() {
@@ -64,27 +67,47 @@ class _CustomSplashScreenState extends State<CustomSplashScreen>
 
     _controller.forward();
 
-    // Navigate setelah 5 detik
+    // Navigate setelah 3 detik dengan check login
     _initialize();
   }
 
   Future<void> _initialize() async {
-    // Simulasi loading (ganti dengan logic real)
+    // Delay splash screen
     await Future.delayed(const Duration(seconds: 3));
 
     if (!mounted) return;
 
-    // Navigate ke MainScreen
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const MainScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 300),
-      ),
-    );
+    // Check login status
+    final isLoggedIn = await _authService.isLoggedIn();
+
+    if (!mounted) return;
+
+    // Navigate berdasarkan status login
+    if (isLoggedIn) {
+      // Jika sudah login, langsung ke MainScreen
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const MainScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 300),
+        ),
+      );
+    } else {
+      // Jika belum login, ke LoginPage
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const LoginPage(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 300),
+        ),
+      );
+    }
   }
 
   @override
@@ -136,7 +159,7 @@ class _CustomSplashScreenState extends State<CustomSplashScreen>
                 ),
               ),
               const SizedBox(height: 10),
-              // Tagline (TANPA LOADING INDICATOR DI BAWAHNYA)
+              // Tagline
               Text(
                 'Investasi Cerdas, Masa Depan Cerah',
                 style: TextStyle(

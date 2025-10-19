@@ -1,11 +1,43 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
+import '../services/logout_service.dart';
 import 'profil_page.dart';
 import 'pengaturan_page.dart';
 import 'faq_page.dart';
 import 'tentang_aplikasi_page.dart';
 
-class AkunPage extends StatelessWidget {
+class AkunPage extends StatefulWidget {
   const AkunPage({super.key});
+
+  @override
+  State<AkunPage> createState() => _AkunPageState();
+}
+
+class _AkunPageState extends State<AkunPage> {
+  final _authService = AuthService();
+  final _logoutService = LogoutService();
+
+  String _userName = 'Loading...';
+  String _userEmail = 'Loading...';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  /// Load user data dari SharedPreferences
+  Future<void> _loadUserData() async {
+    final name = await _authService.getUserName();
+    final email = await _authService.getUserEmail();
+
+    if (mounted) {
+      setState(() {
+        _userName = name ?? 'Nama Pengguna';
+        _userEmail = email ?? 'email@example.com';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,9 +68,9 @@ class AkunPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   // Name
-                  const Text(
-                    'John Doe',
-                    style: TextStyle(
+                  Text(
+                    _userName,
+                    style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
@@ -47,15 +79,13 @@ class AkunPage extends StatelessWidget {
                   const SizedBox(height: 8),
                   // Email
                   Text(
-                    'johndoe@email.com',
+                    _userEmail,
                     style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 20),
                   // Edit Profile Button
                   ElevatedButton(
-                    onPressed: () {
-                      _showEditProfileDialog(context);
-                    },
+                    onPressed: () => _showEditProfileDialog(context),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue,
                       foregroundColor: Colors.white,
@@ -132,7 +162,9 @@ class AkunPage extends StatelessWidget {
               context,
               icon: Icons.exit_to_app,
               title: 'Keluar',
-              onTap: () => _showLogoutDialog(context),
+              iconColor: Colors.red,
+              textColor: Colors.red,
+              onTap: () => _logoutService.showLogoutDialog(context),
             ),
           ],
         ),
@@ -145,12 +177,14 @@ class AkunPage extends StatelessWidget {
     required IconData icon,
     required String title,
     required VoidCallback onTap,
+    Color? iconColor,
+    Color? textColor,
   }) {
     return ListTile(
-      leading: Icon(icon, color: Colors.black87, size: 28),
+      leading: Icon(icon, color: iconColor ?? Colors.black87, size: 28),
       title: Text(
         title,
-        style: const TextStyle(fontSize: 16, color: Colors.black87),
+        style: TextStyle(fontSize: 16, color: textColor ?? Colors.black87),
       ),
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -158,12 +192,13 @@ class AkunPage extends StatelessWidget {
   }
 
   void _showEditProfileDialog(BuildContext context) {
-    final nameController = TextEditingController(text: 'John Doe');
-    final emailController = TextEditingController(text: 'johndoe@email.com');
+    final nameController = TextEditingController(text: _userName);
+    final emailController = TextEditingController(text: _userEmail);
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Edit Profil'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -173,14 +208,17 @@ class AkunPage extends StatelessWidget {
               decoration: const InputDecoration(
                 labelText: 'Nama',
                 border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.person),
               ),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: emailController,
+              keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
                 labelText: 'Email',
                 border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.email),
               ),
             ),
           ],
@@ -191,39 +229,37 @@ class AkunPage extends StatelessWidget {
             child: const Text('Batal'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
+              final newName = nameController.text.trim();
+              final newEmail = emailController.text.trim();
+
+              if (newName.isEmpty || newEmail.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Nama dan Email tidak boleh kosong'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              // Update profile
+              await _authService.updateProfile(newName, newEmail);
+
+              // Reload user data
+              await _loadUserData();
+
+              if (!mounted) return;
               Navigator.pop(context);
+
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Profil berhasil diperbarui')),
+                const SnackBar(
+                  content: Text('Profil berhasil diperbarui'),
+                  backgroundColor: Colors.green,
+                ),
               );
             },
             child: const Text('Simpan'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Keluar'),
-        content: const Text('Apakah Anda yakin ingin keluar?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Anda telah keluar')),
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Keluar'),
           ),
         ],
       ),
