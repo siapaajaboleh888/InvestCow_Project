@@ -23,11 +23,12 @@ class MenuPage extends StatelessWidget {
         elevation: 0,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(12.0), // Dikurangi dari 16 ke 12
         child: GridView.count(
           crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
+          crossAxisSpacing: 12, // Dikurangi dari 16 ke 12
+          mainAxisSpacing: 12, // Dikurangi dari 16 ke 12
+          childAspectRatio: 1.1, // Ditambahkan agar tidak terlalu tinggi
           children: [
             MenuCard(
               icon: Icons.account_balance_wallet,
@@ -154,33 +155,45 @@ class MenuCard extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [color.withOpacity(0.1), Colors.white],
+              colors: [
+                Color.fromRGBO(color.red, color.green, color.blue, 0.1),
+                Colors.white,
+              ],
             ),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 70,
-                height: 70,
+                width: 60, // Dikurangi dari 70 ke 60
+                height: 60, // Dikurangi dari 70 ke 60
                 decoration: BoxDecoration(
                   color: color,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: color.withOpacity(0.4),
+                      color: Color.fromRGBO(
+                        color.red,
+                        color.green,
+                        color.blue,
+                        0.4,
+                      ),
                       offset: const Offset(0, 4),
                       blurRadius: 8,
                     ),
                   ],
                 ),
-                child: Icon(icon, color: Colors.white, size: 35),
+                child: Icon(
+                  icon,
+                  color: Colors.white,
+                  size: 30,
+                ), // Dikurangi dari 35 ke 30
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10), // Dikurangi dari 12 ke 10
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 15, // Dikurangi dari 16 ke 15
                   fontWeight: FontWeight.w600,
                   color: Colors.black87,
                 ),

@@ -1,49 +1,75 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'package:investcow_app/main.dart';
-import 'register_page.dart';
-import 'forgot_password_page.dart';
 
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _authService = AuthService();
+
   bool _obscurePassword = true;
-  bool _rememberMe = false;
+  bool _obscureConfirmPassword = true;
+  bool _agreeToTerms = false;
   bool _isLoading = false;
 
   @override
   void dispose() {
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
+  Future<void> _handleRegister() async {
+    if (!_agreeToTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Anda harus menyetujui syarat dan ketentuan'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
       try {
         // Simulasi delay network (hapus di production)
-        await Future.delayed(const Duration(seconds: 1));
+        await Future.delayed(const Duration(seconds: 2));
 
-        // Save login data dengan remember me
+        // TODO: Implement register API call
+        // await apiService.register(name, email, password);
+
+        // Save login data setelah register berhasil
         await _authService.login(
-          'User', // Atau gunakan nama dari form jika diperlukan
+          _nameController.text.trim(),
           _emailController.text.trim(),
-          rememberMe: _rememberMe,
+          rememberMe: true,
         );
 
         if (!mounted) return;
 
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Registrasi berhasil! Selamat datang di InvestCow'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Navigate to main screen
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const MainScreen()),
           (route) => false,
@@ -52,7 +78,7 @@ class _LoginPageState extends State<LoginPage> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Login gagal: $e'),
+            content: Text('Registrasi gagal: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -64,29 +90,25 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  Future<void> _handleSocialLogin(String provider) async {
+  Future<void> _handleSocialRegister(String provider) async {
     setState(() => _isLoading = true);
 
     try {
-      // TODO: Implement social login integration
+      // TODO: Implement social register integration
       await Future.delayed(const Duration(seconds: 2));
 
       if (!mounted) return;
 
-      // Setelah berhasil social login, navigate ke MainScreen
-      // await _authService.loginWithSocial(provider);
-      // Navigator.of(context).pushAndRemoveUntil(
-      //   MaterialPageRoute(builder: (context) => const MainScreen()),
-      //   (route) => false,
-      // );
-
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login dengan $provider (Coming Soon)')),
+        SnackBar(content: Text('Register dengan $provider (Coming Soon)')),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login gagal: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Register gagal: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) {
@@ -95,24 +117,18 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  void _navigateToRegister() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const RegisterPage()),
-    );
-  }
-
-  void _navigateToForgotPassword() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const ForgotPasswordPage()),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -154,7 +170,7 @@ class _LoginPageState extends State<LoginPage> {
 
                   // Title
                   const Text(
-                    'Login ke akun Anda',
+                    'Buat Akun Baru',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w600,
@@ -162,7 +178,59 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
 
+                  const SizedBox(height: 8),
+
+                  Text(
+                    'Bergabunglah dengan InvestCow',
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                  ),
+
                   const SizedBox(height: 32),
+
+                  // Name Field
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      prefixIcon: Icon(
+                        Icons.person_outline,
+                        color: Colors.grey.shade600,
+                      ),
+                      hintText: 'Nama Lengkap',
+                      hintStyle: TextStyle(color: Colors.grey.shade500),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: Colors.blue,
+                          width: 2,
+                        ),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Nama tidak boleh kosong';
+                      }
+                      if (value.trim().length < 3) {
+                        return 'Nama minimal 3 karakter';
+                      }
+                      return null;
+                    },
+                  ),
+
+                  const SizedBox(height: 16),
 
                   // Email Field
                   TextFormField(
@@ -201,9 +269,7 @@ class _LoginPageState extends State<LoginPage> {
                       if (value == null || value.isEmpty) {
                         return 'Email tidak boleh kosong';
                       }
-                      if (!RegExp(
-                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                      ).hasMatch(value)) {
+                      if (!_authService.isValidEmail(value)) {
                         return 'Email tidak valid';
                       }
                       return null;
@@ -260,53 +326,119 @@ class _LoginPageState extends State<LoginPage> {
                       if (value == null || value.isEmpty) {
                         return 'Password tidak boleh kosong';
                       }
-                      if (value.length < 6) {
+                      if (!_authService.isValidPassword(value)) {
                         return 'Password minimal 6 karakter';
                       }
                       return null;
                     },
                   ),
 
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
-                  // Remember Me & Forgot Password
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: Checkbox(
-                              value: _rememberMe,
-                              onChanged: (value) {
-                                setState(() => _rememberMe = value ?? false);
-                              },
-                              activeColor: Colors.blue,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Biarkan tetap masuk',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ],
+                  // Confirm Password Field
+                  TextFormField(
+                    controller: _confirmPasswordController,
+                    obscureText: _obscureConfirmPassword,
+                    decoration: InputDecoration(
+                      prefixIcon: Icon(
+                        Icons.lock_outline,
+                        color: Colors.grey.shade600,
                       ),
-                      TextButton(
-                        onPressed: _isLoading
-                            ? null
-                            : _navigateToForgotPassword,
-                        child: const Text(
-                          'Lupa Password?',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.blue,
-                            fontWeight: FontWeight.w500,
-                          ),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureConfirmPassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          color: Colors.grey.shade600,
+                        ),
+                        onPressed: () {
+                          setState(
+                            () => _obscureConfirmPassword =
+                                !_obscureConfirmPassword,
+                          );
+                        },
+                      ),
+                      hintText: 'Konfirmasi Password',
+                      hintStyle: TextStyle(color: Colors.grey.shade500),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: Colors.blue,
+                          width: 2,
+                        ),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Konfirmasi password tidak boleh kosong';
+                      }
+                      if (value != _passwordController.text) {
+                        return 'Password tidak cocok';
+                      }
+                      return null;
+                    },
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Terms & Conditions Checkbox
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: Checkbox(
+                          value: _agreeToTerms,
+                          onChanged: (value) {
+                            setState(() => _agreeToTerms = value ?? false);
+                          },
+                          activeColor: Colors.blue,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Wrap(
+                          children: [
+                            const Text(
+                              'Saya setuju dengan ',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                // TODO: Navigate to terms page
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Halaman Syarat & Ketentuan'),
+                                  ),
+                                );
+                              },
+                              child: const Text(
+                                'Syarat & Ketentuan',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -314,12 +446,12 @@ class _LoginPageState extends State<LoginPage> {
 
                   const SizedBox(height: 24),
 
-                  // Login Button
+                  // Register Button
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _handleLogin,
+                      onPressed: _isLoading ? null : _handleRegister,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                         shape: RoundedRectangleBorder(
@@ -337,38 +469,13 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             )
                           : const Text(
-                              'Login',
+                              'Daftar',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.white,
                               ),
                             ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Register Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: OutlinedButton(
-                      onPressed: _isLoading ? null : _navigateToRegister,
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.grey.shade300),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        'Register',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
                     ),
                   ),
 
@@ -381,7 +488,7 @@ class _LoginPageState extends State<LoginPage> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Text(
-                          'atau',
+                          'atau daftar dengan',
                           style: TextStyle(
                             color: Colors.grey.shade600,
                             fontSize: 14,
@@ -394,7 +501,7 @@ class _LoginPageState extends State<LoginPage> {
 
                   const SizedBox(height: 24),
 
-                  // Social Login Buttons
+                  // Social Register Buttons
                   // Facebook
                   SizedBox(
                     width: double.infinity,
@@ -402,10 +509,10 @@ class _LoginPageState extends State<LoginPage> {
                     child: ElevatedButton.icon(
                       onPressed: _isLoading
                           ? null
-                          : () => _handleSocialLogin('Facebook'),
+                          : () => _handleSocialRegister('Facebook'),
                       icon: const Icon(Icons.facebook, color: Colors.white),
                       label: const Text(
-                        'Login dengan Facebook',
+                        'Daftar dengan Facebook',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
@@ -431,7 +538,7 @@ class _LoginPageState extends State<LoginPage> {
                     child: ElevatedButton.icon(
                       onPressed: _isLoading
                           ? null
-                          : () => _handleSocialLogin('Google'),
+                          : () => _handleSocialRegister('Google'),
                       icon: const Text(
                         'G',
                         style: TextStyle(
@@ -441,7 +548,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       label: const Text(
-                        'Login dengan Google',
+                        'Daftar dengan Google',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
@@ -460,11 +567,29 @@ class _LoginPageState extends State<LoginPage> {
 
                   const SizedBox(height: 24),
 
-                  // Info Text
-                  Text(
-                    'Dengan login, Anda menyetujui syarat dan ketentuan aplikasi InvestCow',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    textAlign: TextAlign.center,
+                  // Already have account
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Sudah punya akun? ',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: const Text(
+                          'Login di sini',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.blue,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

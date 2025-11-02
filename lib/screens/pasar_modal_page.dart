@@ -147,7 +147,7 @@ class _PasarModalPageState extends State<PasarModalPage> {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.2),
+                    color: Color.fromRGBO(158, 158, 158, 0.2),
                     spreadRadius: 2,
                     blurRadius: 5,
                   ),

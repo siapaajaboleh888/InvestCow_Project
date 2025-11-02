@@ -127,7 +127,7 @@ class _KasPageState extends State<KasPage> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.cyan.withOpacity(0.3),
+                  color: Color.fromRGBO(0, 255, 255, 0.3),
                   offset: const Offset(0, 8),
                   blurRadius: 16,
                 ),
@@ -141,7 +141,7 @@ class _KasPageState extends State<KasPage> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Color.fromRGBO(255, 255, 255, 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
@@ -662,7 +662,7 @@ class _TopUpBottomSheetState extends State<TopUpBottomSheet> {
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
-                                  color: Colors.cyan.withOpacity(0.2),
+                                  color: Color.fromRGBO(0, 255, 255, 0.2),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -685,7 +685,12 @@ class _TopUpBottomSheetState extends State<TopUpBottomSheet> {
                               borderRadius: BorderRadius.circular(10),
                               boxShadow: [
                                 BoxShadow(
-                                  color: metode['color'].withOpacity(0.3),
+                                  color: Color.fromRGBO(
+                                    metode['color'].red,
+                                    metode['color'].green,
+                                    metode['color'].blue,
+                                    0.3,
+                                  ),
                                   blurRadius: 6,
                                   offset: const Offset(0, 3),
                                 ),

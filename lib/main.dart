@@ -135,7 +135,7 @@ class _CustomSplashScreenState extends State<CustomSplashScreen>
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
+                      color: Color.fromRGBO(0, 0, 0, 0.2),
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),
@@ -164,7 +164,7 @@ class _CustomSplashScreenState extends State<CustomSplashScreen>
                 'Investasi Cerdas, Masa Depan Cerah',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.white.withOpacity(0.9),
+                  color: Color.fromRGBO(255, 255, 255, 0.9),
                   letterSpacing: 0.5,
                 ),
               ),
