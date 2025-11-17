@@ -11,14 +11,19 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  url_launcher: ^6.2.1
+  url_launcher: ^6.3.2
   intl: ^0.18.1
-  shared_preferences: ^2.2.2
+  shared_preferences: ^2.5.3
+  http: ^1.2.2
+  file_picker: ^8.0.0
+  share_plus: ^10.0.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_native_splash: ^2.4.1
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
@@ -37,3 +42,8 @@ flutter_native_splash:
   android_12:
     image: assets/images/investcow.png
     color: "#FFFFFF"
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/images/investcow.png

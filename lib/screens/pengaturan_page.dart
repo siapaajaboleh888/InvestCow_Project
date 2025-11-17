@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class PengaturanPage extends StatefulWidget {
   const PengaturanPage({super.key});
@@ -129,6 +132,46 @@ class _PengaturanPageState extends State<PengaturanPage> {
           // Section: Data & Penyimpanan
           _buildSectionHeader('Data & Penyimpanan'),
           ListTile(
+            leading: Icon(Icons.file_upload, color: Colors.cyan[400]),
+            title: const Text('Export Data (JSON)'),
+            subtitle: const Text('Salin semua data aplikasi dalam format JSON'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: _exportData,
+          ),
+          // Per-module export
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6),
+            child: Wrap(
+              spacing: 8,
+              children: [
+                OutlinedButton.icon(onPressed: () => _exportModule('kas'), icon: const Icon(Icons.account_balance_wallet), label: const Text('Kas')),
+                OutlinedButton.icon(onPressed: () => _exportModule('kesehatan'), icon: const Icon(Icons.medical_services), label: const Text('Kesehatan')),
+                OutlinedButton.icon(onPressed: () => _exportModule('penjualan'), icon: const Icon(Icons.trending_up), label: const Text('Penjualan')),
+                OutlinedButton.icon(onPressed: () => _exportModule('kandang'), icon: const Icon(Icons.home), label: const Text('Kandang')),
+              ],
+            ),
+          ),
+          ListTile(
+            leading: Icon(Icons.file_download, color: Colors.cyan[400]),
+            title: const Text('Import Data (JSON)'),
+            subtitle: const Text('Tempel JSON untuk memulihkan data'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: _importData,
+          ),
+          // Per-module import
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6),
+            child: Wrap(
+              spacing: 8,
+              children: [
+                OutlinedButton.icon(onPressed: () => _importModule('kas'), icon: const Icon(Icons.account_balance_wallet), label: const Text('Kas')),
+                OutlinedButton.icon(onPressed: () => _importModule('kesehatan'), icon: const Icon(Icons.medical_services), label: const Text('Kesehatan')),
+                OutlinedButton.icon(onPressed: () => _importModule('penjualan'), icon: const Icon(Icons.trending_up), label: const Text('Penjualan')),
+                OutlinedButton.icon(onPressed: () => _importModule('kandang'), icon: const Icon(Icons.home), label: const Text('Kandang')),
+              ],
+            ),
+          ),
+          ListTile(
             leading: Icon(Icons.storage, color: Colors.cyan[400]),
             title: const Text('Kelola Penyimpanan'),
             subtitle: const Text('1.2 GB digunakan'),
@@ -240,5 +283,218 @@ class _PengaturanPageState extends State<PengaturanPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _exportData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = {
+      'kas_saldo': prefs.getDouble('kas_saldo') ?? 0,
+      'kas_riwayat': jsonDecode(prefs.getString('kas_riwayat') ?? '[]'),
+      'health_records': jsonDecode(prefs.getString('health_records') ?? '[]'),
+      'sales_records': jsonDecode(prefs.getString('sales_records') ?? '[]'),
+      'barn_records': jsonDecode(prefs.getString('barn_records') ?? '[]'),
+    };
+    final pretty = const JsonEncoder.withIndent('  ').convert(data);
+
+    final controller = TextEditingController(text: pretty);
+    // ignore: use_build_context_synchronously
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Export Data JSON'),
+        content: SizedBox(
+          width: 600,
+          child: TextField(
+            controller: controller,
+            maxLines: 16,
+            readOnly: true,
+            decoration: const InputDecoration(border: OutlineInputBorder()),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: controller.text));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tersalin ke clipboard')));
+            },
+            child: const Text('Copy'),
+          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Tutup')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _importData() async {
+    final input = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Import Data JSON'),
+        content: SizedBox(
+          width: 600,
+          child: TextField(
+            controller: input,
+            maxLines: 16,
+            decoration: const InputDecoration(hintText: 'Tempel JSON di sini', border: OutlineInputBorder()),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Import')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    try {
+      final decoded = jsonDecode(input.text);
+      if (decoded is! Map<String, dynamic>) throw 'Root harus object';
+      final obj = decoded as Map<String, dynamic>;
+      final prefs = await SharedPreferences.getInstance();
+      if (obj.containsKey('kas_saldo')) {
+        final v = obj['kas_saldo'];
+        if (v is num) await prefs.setDouble('kas_saldo', v.toDouble());
+      }
+      if (obj.containsKey('kas_riwayat')) {
+        final list = obj['kas_riwayat'];
+        if (list is! List) throw 'kas_riwayat harus array';
+        await prefs.setString('kas_riwayat', jsonEncode(list));
+      }
+      if (obj.containsKey('health_records')) {
+        final list = obj['health_records'];
+        if (list is! List) throw 'health_records harus array';
+        await prefs.setString('health_records', jsonEncode(list));
+      }
+      if (obj.containsKey('sales_records')) {
+        final list = obj['sales_records'];
+        if (list is! List) throw 'sales_records harus array';
+        await prefs.setString('sales_records', jsonEncode(list));
+      }
+      if (obj.containsKey('barn_records')) {
+        final list = obj['barn_records'];
+        if (list is! List) throw 'barn_records harus array';
+        await prefs.setString('barn_records', jsonEncode(list));
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Import berhasil'), backgroundColor: Colors.green),
+        );
+        setState(() {});
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal import: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportModule(String module) async {
+    final prefs = await SharedPreferences.getInstance();
+    Map<String, dynamic> data;
+    switch (module) {
+      case 'kas':
+        data = {
+          'kas_saldo': prefs.getDouble('kas_saldo') ?? 0,
+          'kas_riwayat': jsonDecode(prefs.getString('kas_riwayat') ?? '[]'),
+        };
+        break;
+      case 'kesehatan':
+        data = {'health_records': jsonDecode(prefs.getString('health_records') ?? '[]')};
+        break;
+      case 'penjualan':
+        data = {'sales_records': jsonDecode(prefs.getString('sales_records') ?? '[]')};
+        break;
+      case 'kandang':
+        data = {'barn_records': jsonDecode(prefs.getString('barn_records') ?? '[]')};
+        break;
+      default:
+        data = {};
+    }
+    final pretty = const JsonEncoder.withIndent('  ').convert(data);
+    final controller = TextEditingController(text: pretty);
+    // ignore: use_build_context_synchronously
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Export ${module[0].toUpperCase()}${module.substring(1)}'),
+        content: SizedBox(
+          width: 600,
+          child: TextField(controller: controller, maxLines: 16, readOnly: true, decoration: const InputDecoration(border: OutlineInputBorder())),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: controller.text));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tersalin ke clipboard')));
+            },
+            child: const Text('Copy'),
+          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Tutup')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _importModule(String module) async {
+    final input = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Import ${module[0].toUpperCase()}${module.substring(1)}'),
+        content: SizedBox(
+          width: 600,
+          child: TextField(controller: input, maxLines: 16, decoration: const InputDecoration(hintText: 'Tempel JSON di sini', border: OutlineInputBorder())),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Import')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    try {
+      final decoded = jsonDecode(input.text);
+      if (decoded is! Map<String, dynamic>) throw 'Root harus object';
+      final obj = decoded as Map<String, dynamic>;
+      final prefs = await SharedPreferences.getInstance();
+      switch (module) {
+        case 'kas':
+          if (obj.containsKey('kas_saldo')) {
+            final v = obj['kas_saldo'];
+            if (v is! num) throw 'kas_saldo harus number';
+            await prefs.setDouble('kas_saldo', v.toDouble());
+          }
+          if (obj.containsKey('kas_riwayat')) {
+            final list = obj['kas_riwayat'];
+            if (list is! List) throw 'kas_riwayat harus array';
+            await prefs.setString('kas_riwayat', jsonEncode(list));
+          }
+          break;
+        case 'kesehatan':
+          if (!obj.containsKey('health_records') || obj['health_records'] is! List) throw 'health_records harus array';
+          await prefs.setString('health_records', jsonEncode(obj['health_records']));
+          break;
+        case 'penjualan':
+          if (!obj.containsKey('sales_records') || obj['sales_records'] is! List) throw 'sales_records harus array';
+          await prefs.setString('sales_records', jsonEncode(obj['sales_records']));
+          break;
+        case 'kandang':
+          if (!obj.containsKey('barn_records') || obj['barn_records'] is! List) throw 'barn_records harus array';
+          await prefs.setString('barn_records', jsonEncode(obj['barn_records']));
+          break;
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Import berhasil'), backgroundColor: Colors.green));
+        setState(() {});
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal import: $e'), backgroundColor: Colors.red));
+      }
+    }
   }
 }

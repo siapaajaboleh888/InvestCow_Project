@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class KasPage extends StatefulWidget {
   const KasPage({super.key});
@@ -11,6 +13,48 @@ class KasPage extends StatefulWidget {
 class _KasPageState extends State<KasPage> {
   double saldoKas = 0;
   final List<Map<String, dynamic>> riwayatTransaksi = [];
+  String _filter = 'Semua'; // Semua, Top Up, Pengeluaran
+
+  @override
+  void initState() {
+    super.initState();
+    _loadKasData();
+  }
+
+  Future<void> _loadKasData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      saldoKas = prefs.getDouble('kas_saldo') ?? 0;
+      final raw = prefs.getString('kas_riwayat');
+      if (raw != null && raw.isNotEmpty) {
+        final list = (jsonDecode(raw) as List<dynamic>).cast<Map<String, dynamic>>();
+        riwayatTransaksi
+          ..clear()
+          ..addAll(list.map((e) => {
+                'jenis': e['jenis'],
+                'nominal': (e['nominal'] as num).toDouble(),
+                'metode': e['metode'],
+                'tanggal': DateTime.parse(e['tanggal']),
+                'status': e['status'],
+              }));
+      }
+    });
+  }
+
+  Future<void> _saveKasData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('kas_saldo', saldoKas);
+    final encoded = jsonEncode(riwayatTransaksi
+        .map((e) => {
+              'jenis': e['jenis'],
+              'nominal': e['nominal'],
+              'metode': e['metode'],
+              'tanggal': (e['tanggal'] as DateTime).toIso8601String(),
+              'status': e['status'],
+            })
+        .toList());
+    await prefs.setString('kas_riwayat', encoded);
+  }
 
   void _tambahSaldo(double nominal, String metode) {
     setState(() {
@@ -23,6 +67,7 @@ class _KasPageState extends State<KasPage> {
         'status': 'Berhasil',
       });
     });
+    _saveKasData();
   }
 
   void _showTopUpDialog() {
@@ -227,7 +272,26 @@ class _KasPageState extends State<KasPage> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          // Filter chips
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                for (final label in ['Semua', 'Top Up', 'Pengeluaran'])
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: ChoiceChip(
+                      label: Text(label),
+                      selected: _filter == label,
+                      onSelected: (_) => setState(() => _filter = label),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
 
           // List Riwayat
           Expanded(
@@ -270,9 +334,14 @@ class _KasPageState extends State<KasPage> {
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: riwayatTransaksi.length,
+                    itemCount: riwayatTransaksi
+                        .where((e) => _filter == 'Semua' || e['jenis'] == _filter)
+                        .length,
                     itemBuilder: (context, index) {
-                      final transaksi = riwayatTransaksi[index];
+                      final list = riwayatTransaksi
+                          .where((e) => _filter == 'Semua' || e['jenis'] == _filter)
+                          .toList();
+                      final transaksi = list[index];
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         elevation: 0,
@@ -283,15 +352,98 @@ class _KasPageState extends State<KasPage> {
                         ),
                         child: ListTile(
                           contentPadding: const EdgeInsets.all(16),
+                          onTap: () async {
+                            // Edit nominal sederhana
+                            final controller = TextEditingController(
+                              text: (transaksi['nominal'] as double)
+                                  .toStringAsFixed(0),
+                            );
+                            final changed = await showDialog<double>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Edit nominal'),
+                                content: TextField(
+                                  controller: controller,
+                                  keyboardType: TextInputType.number,
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text('Batal'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      final v = double.tryParse(controller.text);
+                                      if (v != null && v > 0) {
+                                        Navigator.pop(ctx, v);
+                                      }
+                                    },
+                                    child: const Text('Simpan'),
+                                  )
+                                ],
+                              ),
+                            );
+                            if (changed != null) {
+                              setState(() {
+                                final idx = riwayatTransaksi.indexOf(transaksi);
+                                final old = riwayatTransaksi[idx]['nominal'] as double;
+                                riwayatTransaksi[idx]['nominal'] = changed;
+                                if (transaksi['jenis'] == 'Top Up') {
+                                  saldoKas += (changed - old);
+                                } else {
+                                  saldoKas -= (changed - old);
+                                }
+                              });
+                              await _saveKasData();
+                            }
+                          },
+                          onLongPress: () async {
+                            final ok = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Hapus transaksi?'),
+                                content: const Text('Tindakan ini tidak dapat dibatalkan.'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text('Batal'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: const Text('Hapus'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (ok == true) {
+                              setState(() {
+                                final idx = riwayatTransaksi.indexOf(transaksi);
+                                final removed = riwayatTransaksi.removeAt(idx);
+                                final amount = (removed['nominal'] as double);
+                                if (removed['jenis'] == 'Top Up') {
+                                  saldoKas -= amount;
+                                } else {
+                                  saldoKas += amount;
+                                }
+                              });
+                              await _saveKasData();
+                            }
+                          },
                           leading: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.green[50],
+                              color: transaksi['jenis'] == 'Top Up'
+                                  ? Colors.green[50]
+                                  : Colors.red[50],
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
-                              Icons.arrow_downward_rounded,
-                              color: Colors.green[600],
+                              transaksi['jenis'] == 'Top Up'
+                                  ? Icons.arrow_downward_rounded
+                                  : Icons.arrow_upward_rounded,
+                              color: transaksi['jenis'] == 'Top Up'
+                                  ? Colors.green[600]
+                                  : Colors.red[600],
                               size: 24,
                             ),
                           ),
@@ -328,9 +480,11 @@ class _KasPageState extends State<KasPage> {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
-                                '+ Rp ${transaksi['nominal'].toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}',
+                                '${transaksi['jenis'] == 'Top Up' ? '+' : '-'} Rp ${transaksi['nominal'].toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}',
                                 style: TextStyle(
-                                  color: Colors.green[600],
+                                  color: transaksi['jenis'] == 'Top Up'
+                                      ? Colors.green[600]
+                                      : Colors.red[600],
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
                                 ),

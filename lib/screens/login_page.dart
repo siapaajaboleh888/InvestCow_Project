@@ -32,13 +32,9 @@ class _LoginPageState extends State<LoginPage> {
       setState(() => _isLoading = true);
 
       try {
-        // Simulasi delay network (hapus di production)
-        await Future.delayed(const Duration(seconds: 1));
-
-        // Save login data dengan remember me
-        await _authService.login(
-          'User', // Atau gunakan nama dari form jika diperlukan
+        await _authService.loginWithBackend(
           _emailController.text.trim(),
+          _passwordController.text,
           rememberMe: _rememberMe,
         );
 
@@ -50,9 +46,23 @@ class _LoginPageState extends State<LoginPage> {
         );
       } catch (e) {
         if (!mounted) return;
+        final msg = e.toString();
+        String userMessage;
+        if (msg.contains('401')) {
+          final email = _emailController.text.trim();
+          final isAdmin = email.toLowerCase() == 'admin@investcow.com';
+          if (isAdmin) {
+            userMessage = 'Login admin gagal: email atau password salah.';
+          } else {
+            userMessage =
+                'Login gagal: email atau password salah / belum terdaftar. Silakan lakukan Register terlebih dahulu.';
+          }
+        } else {
+          userMessage = 'Login gagal, coba lagi beberapa saat. Detail: $msg';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Login gagal: $e'),
+            content: Text(userMessage),
             backgroundColor: Colors.red,
           ),
         );

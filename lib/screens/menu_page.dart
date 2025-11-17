@@ -5,6 +5,7 @@ import 'kesehatan_page.dart';
 import 'penjualan_page.dart';
 import 'kandang_page.dart';
 import 'pembayaran_page.dart';
+import '../main.dart';
 
 class MenuPage extends StatelessWidget {
   const MenuPage({super.key});
@@ -12,104 +13,134 @@ class MenuPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[300],
+      backgroundColor: const Color(0xFFF3F5F9),
       appBar: AppBar(
         backgroundColor: Colors.cyan[400],
         foregroundColor: Colors.white,
+        elevation: 0,
         title: const Text(
           'Menu InvestCow',
-          style: TextStyle(fontWeight: FontWeight.w500, fontSize: 20),
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 20),
         ),
-        elevation: 0,
+        centerTitle: false,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(12.0), // Dikurangi dari 16 ke 12
-        child: GridView.count(
-          crossAxisCount: 2,
-          crossAxisSpacing: 12, // Dikurangi dari 16 ke 12
-          mainAxisSpacing: 12, // Dikurangi dari 16 ke 12
-          childAspectRatio: 1.1, // Ditambahkan agar tidak terlalu tinggi
-          children: [
-            MenuCard(
-              icon: Icons.account_balance_wallet,
-              title: 'Kas',
-              color: Colors.green[400]!,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const KasPage()),
-                );
-              },
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: const Text(
+              'Pilih fitur untuk mengelola investasi sapi Anda',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.black54,
+                fontWeight: FontWeight.w400,
+              ),
             ),
-            MenuCard(
-              icon: Icons.shopping_cart,
-              title: 'Pasar',
-              color: Colors.blue[400]!,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const PasarPage()),
-                );
-              },
-            ),
-            MenuCard(
-              icon: Icons.medical_services,
-              title: 'Kesehatan',
-              color: Colors.red[400]!,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const KesehatanPage(),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(12.0), // Dikurangi dari 16 ke 12
+              child: GridView.count(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12, // Dikurangi dari 16 ke 12
+                mainAxisSpacing: 12, // Dikurangi dari 16 ke 12
+                childAspectRatio: 1.05, // Sedikit lebih lebar
+                children: [
+                  MenuCard(
+                    icon: Icons.account_balance_wallet,
+                    title: 'Kas',
+                    color: Colors.green[400]!,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const KasPage()),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
-            MenuCard(
-              icon: Icons.trending_up,
-              title: 'Penjualan',
-              color: Colors.orange[400]!,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const PenjualanPage(),
+                  MenuCard(
+                    icon: Icons.shopping_cart,
+                    title: 'Pasar',
+                    color: Colors.blue[400]!,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const PasarPage()),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
-            MenuCard(
-              icon: Icons.pets,
-              title: 'Kandang',
-              color: Colors.brown[400]!,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const KandangPage()),
-                );
-              },
-            ),
-            MenuCard(
-              icon: Icons.credit_card,
-              title: 'Pembayaran',
-              color: Colors.purple[400]!,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const PembayaranPage(),
+                  MenuCard(
+                    icon: Icons.medical_services,
+                    title: 'Kesehatan',
+                    color: Colors.red[400]!,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const KesehatanPage(),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
+                  MenuCard(
+                    icon: Icons.trending_up,
+                    title: 'Penjualan',
+                    color: Colors.orange[400]!,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const PenjualanPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  MenuCard(
+                    icon: Icons.pets,
+                    title: 'Kandang',
+                    color: Colors.brown[400]!,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const KandangPage()),
+                      );
+                    },
+                  ),
+                  MenuCard(
+                    icon: Icons.credit_card,
+                    title: 'Pembayaran',
+                    color: Colors.purple[400]!,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const PembayaranPage(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 0,
-        selectedItemColor: Colors.green[700],
-        unselectedItemColor: Colors.grey,
+        selectedItemColor: Colors.cyan[600],
+        unselectedItemColor: Colors.grey[500],
         type: BottomNavigationBarType.fixed,
+        onTap: (index) {
+          // Pindah ke MainScreen dengan tab sesuai index
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MainScreen(initialIndex: index),
+            ),
+            (route) => false,
+          );
+        },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Beranda'),
           BottomNavigationBarItem(

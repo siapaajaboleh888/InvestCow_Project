@@ -1,4 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'api_client.dart';
 
 /// Service untuk handle autentikasi user
 class AuthService {
@@ -11,6 +14,8 @@ class AuthService {
       'login_method'; // email, facebook, google
   static const String _keyUserId = 'user_id';
   static const String _keyLoginTimestamp = 'login_timestamp';
+  static const String _keyToken = 'auth_token';
+  static const String _keyRole = 'user_role';
 
   // Singleton pattern - hanya ada 1 instance
   static final AuthService _instance = AuthService._internal();
@@ -42,6 +47,72 @@ class AuthService {
     }
 
     return isLoggedIn;
+  }
+
+  /// Login ke backend dan simpan token + profil dasar
+  Future<void> loginWithBackend(String email, String password,
+      {bool rememberMe = false}) async {
+    final client = ApiClient();
+    final uri = client.uri('/auth/login');
+    final res = await http
+        .post(uri, headers: client.jsonHeaders(), body: jsonEncode({
+      'email': email,
+      'password': password,
+    }));
+
+    if (res.statusCode != 200) {
+      throw Exception('Login gagal (${res.statusCode})');
+    }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyIsLoggedIn, true);
+    await prefs.setString(_keyUserEmail, email);
+    await prefs.setString(_keyUserName, (data['display_name'] ?? 'User').toString());
+    await prefs.setString(_keyUserId, data['id'].toString());
+    await prefs.setString(_keyRole, (data['role'] ?? 'user').toString());
+    await prefs.setBool(_keyRememberMe, rememberMe);
+    await prefs.setString(_keyLoginMethod, 'email');
+    await prefs.setString(_keyLoginTimestamp, DateTime.now().toIso8601String());
+    if (data['token'] != null) {
+      await prefs.setString(_keyToken, data['token']);
+    }
+  }
+
+  /// Register ke backend kemudian auto-login
+  Future<void> registerWithBackend({
+    required String displayName,
+    required String email,
+    required String password,
+    String? locale,
+  }) async {
+    final client = ApiClient();
+    final uri = client.uri('/auth/register');
+    final res = await http.post(
+      uri,
+      headers: client.jsonHeaders(),
+      body: jsonEncode({
+        'display_name': displayName,
+        'email': email,
+        'password': password,
+        'locale': locale,
+      }),
+    );
+    if (res.statusCode != 201) {
+      throw Exception('Registrasi gagal (${res.statusCode})');
+    }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyIsLoggedIn, true);
+    await prefs.setString(_keyUserEmail, email);
+    await prefs.setString(_keyUserName, displayName);
+    await prefs.setString(_keyUserId, data['id'].toString());
+    await prefs.setBool(_keyRememberMe, true);
+    await prefs.setString(_keyLoginMethod, 'email');
+    await prefs.setString(_keyLoginTimestamp, DateTime.now().toIso8601String());
+    if (data['token'] != null) {
+      await prefs.setString(_keyToken, data['token']);
+    }
   }
 
   /// Login user dengan email/password - simpan data ke SharedPreferences
@@ -122,6 +193,12 @@ class AuthService {
     return prefs.getString(_keyUserId);
   }
 
+  /// Ambil role user (user/admin)
+  Future<String> getUserRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyRole) ?? 'user';
+  }
+
   /// Ambil login method (email, facebook, google)
   Future<String?> getLoginMethod() async {
     final prefs = await SharedPreferences.getInstance();
@@ -158,6 +235,7 @@ class AuthService {
       'name': prefs.getString(_keyUserName),
       'email': prefs.getString(_keyUserEmail),
       'userId': prefs.getString(_keyUserId),
+      'role': prefs.getString(_keyRole) ?? 'user',
       'loginMethod': prefs.getString(_keyLoginMethod),
       'rememberMe': prefs.getBool(_keyRememberMe) ?? false,
       'loginTimestamp': prefs.getString(_keyLoginTimestamp),
@@ -183,6 +261,31 @@ class AuthService {
     await prefs.remove(_keyUserId);
     await prefs.remove(_keyLoginMethod);
     await prefs.remove(_keyLoginTimestamp);
+    await prefs.remove(_keyToken);
     // Keep remember me preference
+  }
+
+  /// Ambil token JWT jika ada
+  Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyToken);
+  }
+
+  /// Hapus akun di backend dan bersihkan sesi lokal
+  Future<void> deleteAccount() async {
+    final token = await getToken();
+    final client = ApiClient();
+    final uri = client.uri('/auth/me');
+
+    final res = await http.delete(
+      uri,
+      headers: client.jsonHeaders(token: token ?? ''),
+    );
+
+    if (res.statusCode != 204) {
+      throw Exception('Gagal menghapus akun (${res.statusCode})');
+    }
+
+    await logout();
   }
 }

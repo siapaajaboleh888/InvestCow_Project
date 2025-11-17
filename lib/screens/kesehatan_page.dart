@@ -1,7 +1,128 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
-class KesehatanPage extends StatelessWidget {
+class KesehatanPage extends StatefulWidget {
   const KesehatanPage({super.key});
+
+  @override
+  State<KesehatanPage> createState() => _KesehatanPageState();
+}
+
+class _KesehatanPageState extends State<KesehatanPage> {
+  final List<Map<String, dynamic>> _records = [];
+  int get sehatCount => _records.where((e) => e['status'] == 'Sehat').length;
+  int get perawatanCount => _records.where((e) => e['status'] != 'Sehat').length;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('health_records');
+    setState(() {
+      _records
+        ..clear()
+        ..addAll(raw == null || raw.isEmpty
+            ? []
+            : (jsonDecode(raw) as List)
+                .cast<Map<String, dynamic>>()
+                .map((e) => {
+                      'nama': e['nama'],
+                      'status': e['status'],
+                      'next': e['next'] != null ? DateTime.parse(e['next']) : null,
+                    }));
+    });
+  }
+
+  Future<void> _save() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'health_records',
+      jsonEncode(_records
+          .map((e) => {
+                'nama': e['nama'],
+                'status': e['status'],
+                'next': (e['next'] as DateTime?)?.toIso8601String(),
+              })
+          .toList()),
+    );
+  }
+
+  Future<void> _addOrEdit({Map<String, dynamic>? current}) async {
+    final name = TextEditingController(text: current?['nama'] ?? '');
+    String status = current?['status'] ?? 'Sehat';
+    DateTime? nextDate = current?['next'];
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: Text(current == null ? 'Tambah Catatan' : 'Edit Catatan'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: name,
+                  decoration: const InputDecoration(labelText: 'Nama Sapi'),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: status,
+                  items: const [
+                    DropdownMenuItem(value: 'Sehat', child: Text('Sehat')),
+                    DropdownMenuItem(value: 'Perawatan', child: Text('Perawatan')),
+                    DropdownMenuItem(value: 'Sakit', child: Text('Sakit')),
+                  ],
+                  onChanged: (v) => setS(() => status = v ?? 'Sehat'),
+                  decoration: const InputDecoration(labelText: 'Status'),
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.vaccines),
+                  title: const Text('Jadwal Vaksin Berikutnya'),
+                  subtitle: Text(
+                    nextDate == null
+                        ? 'Belum diatur'
+                        : '${nextDate!.day}/${nextDate!.month}/${nextDate!.year}',
+                  ),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: nextDate ?? DateTime.now().add(const Duration(days: 30)),
+                      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+                    );
+                    if (picked != null) setS(() => nextDate = picked);
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Simpan')),
+          ],
+        ),
+      ),
+    );
+    if (ok == true && name.text.trim().isNotEmpty) {
+      setState(() {
+        if (current == null) {
+          _records.add({'nama': name.text.trim(), 'status': status, 'next': nextDate});
+        } else {
+          final idx = _records.indexOf(current);
+          _records[idx] = {'nama': name.text.trim(), 'status': status, 'next': nextDate};
+        }
+      });
+      await _save();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,89 +174,22 @@ class KesehatanPage extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Pantau kondisi sapi Anda',
-                        style: TextStyle(fontSize: 16, color: Colors.white70),
+                      Text(
+                        'Sehat: $sehatCount • Perawatan/Sakit: $perawatanCount',
+                        style: const TextStyle(fontSize: 16, color: Colors.white70),
                       ),
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: Card(
-                      elevation: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.check_circle,
-                              color: Colors.green,
-                              size: 40,
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Sehat',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            const Text(
-                              '45',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Card(
-                      elevation: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          children: [
-                            Icon(Icons.warning, color: Colors.orange, size: 40),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Perawatan',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            const Text(
-                              '3',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Jadwal Vaksinasi',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
                 ),
               ),
               const SizedBox(height: 16),
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: 4,
+                itemCount: _records.length,
                 itemBuilder: (context, index) {
+                  final r = _records[index];
+                  final overdue = r['next'] != null && (r['next'] as DateTime).isBefore(DateTime.now());
                   return Card(
                     elevation: 2,
                     margin: const EdgeInsets.only(bottom: 12),
@@ -145,33 +199,53 @@ class KesehatanPage extends StatelessWidget {
                     child: ListTile(
                       contentPadding: const EdgeInsets.all(16),
                       leading: CircleAvatar(
-                        backgroundColor: Colors.red[100],
-                        radius: 30,
+                        backgroundColor: r['status'] == 'Sehat' ? Colors.green[100] : Colors.orange[100],
                         child: Icon(
-                          Icons.vaccines,
-                          color: Colors.red[700],
-                          size: 30,
+                          overdue ? Icons.warning_amber : Icons.health_and_safety,
+                          color: overdue ? Colors.orange[700] : (r['status'] == 'Sehat' ? Colors.green[700] : Colors.orange[700]),
                         ),
                       ),
-                      title: Text(
-                        'Sapi ${index + 1}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                      title: Text(r['nama'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Status: ${r['status']}'),
+                          Text('Vaksin berikutnya: ' + (
+                              r['next'] == null ? '-' : '${(r['next'] as DateTime).day}/${(r['next'] as DateTime).month}/${(r['next'] as DateTime).year}'
+                          )),
+                        ],
                       ),
-                      subtitle: Text('Vaksinasi: ${15 + index} Okt 2025'),
-                      trailing: Icon(Icons.arrow_forward_ios, size: 16),
+                      trailing: PopupMenuButton<String>(
+                        onSelected: (v) async {
+                          if (v == 'edit') {
+                            await _addOrEdit(current: r);
+                          } else if (v == 'delete') {
+                            setState(() => _records.removeAt(index));
+                            await _save();
+                          }
+                        },
+                        itemBuilder: (ctx) => const [
+                          PopupMenuItem(value: 'edit', child: Text('Edit')),
+                          PopupMenuItem(value: 'delete', child: Text('Hapus')),
+                        ],
+                      ),
                     ),
                   );
                 },
               ),
+              if (_records.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 24.0),
+                  child: Center(
+                    child: Text('Belum ada catatan. Tekan + untuk menambah.', style: TextStyle(color: Colors.grey[700])),
+                  ),
+                ),
             ],
           ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () => _addOrEdit(),
         backgroundColor: Colors.red[400],
         child: const Icon(Icons.add, color: Colors.white),
       ),

@@ -1,0 +1,5 @@
+# Example release signing config. Copy to key.properties and fill real values.
+storeFile=../keystore/investcow-release.keystore
+storePassword=change_me
+keyAlias=investcow
+keyPassword=change_me

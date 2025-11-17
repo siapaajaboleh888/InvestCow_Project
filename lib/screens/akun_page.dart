@@ -5,6 +5,8 @@ import 'profil_page.dart';
 import 'pengaturan_page.dart';
 import 'faq_page.dart';
 import 'tentang_aplikasi_page.dart';
+import 'login_page.dart';
+import 'admin_panel_page.dart';
 
 class AkunPage extends StatefulWidget {
   const AkunPage({super.key});
@@ -19,6 +21,7 @@ class _AkunPageState extends State<AkunPage> {
 
   String _userName = 'Loading...';
   String _userEmail = 'Loading...';
+  String _userRole = 'user';
 
   @override
   void initState() {
@@ -30,11 +33,13 @@ class _AkunPageState extends State<AkunPage> {
   Future<void> _loadUserData() async {
     final name = await _authService.getUserName();
     final email = await _authService.getUserEmail();
+    final role = await _authService.getUserRole();
 
     if (mounted) {
       setState(() {
         _userName = name ?? 'Nama Pengguna';
         _userEmail = email ?? 'email@example.com';
+        _userRole = role;
       });
     }
   }
@@ -134,6 +139,18 @@ class _AkunPageState extends State<AkunPage> {
                 );
               },
             ),
+            if (_userRole == 'admin')
+              _buildMenuItem(
+                context,
+                icon: Icons.admin_panel_settings,
+                title: 'Admin Panel',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AdminPanelPage()),
+                  );
+                },
+              ),
             _buildMenuItem(
               context,
               icon: Icons.help_outline,
@@ -165,6 +182,56 @@ class _AkunPageState extends State<AkunPage> {
               iconColor: Colors.red,
               textColor: Colors.red,
               onTap: () => _logoutService.showLogoutDialog(context),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade50,
+                  foregroundColor: Colors.red.shade700,
+                  side: BorderSide(color: Colors.red.shade200),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: const Icon(Icons.delete_forever),
+                label: const Text('Hapus Akun'),
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Hapus Akun?'),
+                      content: const Text('Tindakan ini tidak dapat dibatalkan. Semua data akun akan dihapus.'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                          child: const Text('Hapus'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm != true) return;
+
+                  try {
+                    await _authService.deleteAccount();
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Akun berhasil dihapus'), backgroundColor: Colors.green),
+                    );
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const LoginPage()),
+                      (route) => false,
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Gagal menghapus akun: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                },
+              ),
             ),
           ],
         ),

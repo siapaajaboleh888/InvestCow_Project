@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import 'dart:convert';
+import '../services/api_client.dart';
+import 'package:http/http.dart' as http;
 
 class PasarModalPage extends StatefulWidget {
   const PasarModalPage({super.key});
@@ -13,6 +16,11 @@ class _PasarModalPageState extends State<PasarModalPage> {
   double currentPrice = 25000000;
   int quantity = 1;
   bool isPriceUp = true;
+
+  final _apiClient = ApiClient();
+  bool _loadingProducts = true;
+  String? _productsError;
+  List<Map<String, dynamic>> _products = [];
 
   final Map<String, double> sapiPrices = {
     'Sapi Limosin': 25000000,
@@ -34,6 +42,40 @@ class _PasarModalPageState extends State<PasarModalPage> {
     25000000,
     25200000,
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProducts();
+  }
+
+  Future<void> _fetchProducts() async {
+    setState(() {
+      _loadingProducts = true;
+      _productsError = null;
+    });
+    try {
+      final uri = _apiClient.uri('/admin/products-public');
+      final res = await http.get(uri, headers: _apiClient.jsonHeaders());
+      if (res.statusCode != 200) {
+        throw Exception('Gagal mengambil produk (${res.statusCode})');
+      }
+      final data = jsonDecode(res.body) as List;
+      setState(() {
+        _products = data.cast<Map<String, dynamic>>();
+      });
+    } catch (e) {
+      setState(() {
+        _productsError = e.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingProducts = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

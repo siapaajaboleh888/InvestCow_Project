@@ -46,17 +46,11 @@ class _RegisterPageState extends State<RegisterPage> {
       setState(() => _isLoading = true);
 
       try {
-        // Simulasi delay network (hapus di production)
-        await Future.delayed(const Duration(seconds: 2));
-
-        // TODO: Implement register API call
-        // await apiService.register(name, email, password);
-
-        // Save login data setelah register berhasil
-        await _authService.login(
-          _nameController.text.trim(),
-          _emailController.text.trim(),
-          rememberMe: true,
+        await _authService.registerWithBackend(
+          displayName: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          locale: 'id_ID',
         );
 
         if (!mounted) return;
@@ -78,7 +72,7 @@ class _RegisterPageState extends State<RegisterPage> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Registrasi gagal: $e'),
+            content: Text('Registrasi gagal: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );

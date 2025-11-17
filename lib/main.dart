@@ -178,7 +178,8 @@ class _CustomSplashScreenState extends State<CustomSplashScreen>
 
 // ✅ MAIN SCREEN dengan Lazy Loading
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  final int initialIndex;
+  const MainScreen({super.key, this.initialIndex = 0});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -194,7 +195,8 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: 0);
+    _selectedIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
     // Pre-load home page aja
     _cachedPages[0] = const HomePage();
   }
@@ -241,7 +243,7 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       body: PageView.builder(
         controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(),
+        physics: const PageScrollPhysics(),
         itemCount: 4,
         itemBuilder: (context, index) => _getPage(index),
         onPageChanged: (index) {
