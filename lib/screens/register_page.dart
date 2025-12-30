@@ -55,17 +55,11 @@ class _RegisterPageState extends State<RegisterPage> {
 
         if (!mounted) return;
 
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Registrasi berhasil! Selamat datang di InvestCow'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        // Navigate to main screen
+        // Navigate to main screen dengan welcome message
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const MainScreen()),
+          MaterialPageRoute(
+            builder: (context) => const MainScreen(showWelcome: true),
+          ),
           (route) => false,
         );
       } catch (e) {

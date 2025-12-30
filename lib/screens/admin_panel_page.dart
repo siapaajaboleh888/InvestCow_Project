@@ -160,15 +160,17 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
     await showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: Text(existing == null ? 'Tambah Produk' : 'Edit Produk'),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              title: Text(existing == null ? 'Tambah Produk' : 'Edit Produk'),
+              content: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                   TextFormField(
                     controller: nameController,
                     decoration: const InputDecoration(labelText: 'Nama Produk'),
@@ -194,36 +196,36 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
                     validator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'Kuota tidak boleh kosong' : null,
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          imageUrl != null
-                              ? 'Gambar terpilih'
-                              : 'Belum ada gambar',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: () async {
-                          final url = await _uploadImage();
-                          if (url != null) {
-                            setState(() {
-                              imageUrl = url;
-                            });
-                          }
-                        },
-                        icon: const Icon(Icons.image_outlined),
-                        label: const Text('Pilih Gambar'),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              imageUrl != null
+                                  ? 'Gambar terpilih'
+                                  : 'Belum ada gambar',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: () async {
+                              final url = await _uploadImage();
+                              if (url != null) {
+                                setStateDialog(() {
+                                  imageUrl = url;
+                                });
+                              }
+                            },
+                            icon: const Icon(Icons.image_outlined),
+                            label: const Text('Pilih Gambar'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
-          actions: [
+              actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Batal'),
@@ -286,6 +288,8 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
               child: const Text('Simpan'),
             ),
           ],
+        );
+          },
         );
       },
     );

@@ -39,7 +39,7 @@ class TransactionsService {
     final uri = _client.uri('/transactions');
     final body = {
       'portfolio_id': portfolioId,
-      'type': type,
+      'type': type.toLowerCase(),
       'symbol': symbol,
       'quantity': quantity,
       'price': price,

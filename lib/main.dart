@@ -179,7 +179,8 @@ class _CustomSplashScreenState extends State<CustomSplashScreen>
 // ✅ MAIN SCREEN dengan Lazy Loading
 class MainScreen extends StatefulWidget {
   final int initialIndex;
-  const MainScreen({super.key, this.initialIndex = 0});
+  final bool showWelcome;
+  const MainScreen({super.key, this.initialIndex = 0, this.showWelcome = false});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -188,6 +189,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   late final PageController _pageController;
+  final _authService = AuthService();
 
   // ✅ Lazy load pages - hanya create saat pertama diakses
   final Map<int, Widget> _cachedPages = {};
@@ -199,6 +201,28 @@ class _MainScreenState extends State<MainScreen> {
     _pageController = PageController(initialPage: widget.initialIndex);
     // Pre-load home page aja
     _cachedPages[0] = const HomePage();
+
+    if (widget.showWelcome) {
+      _showWelcomeMessage();
+    }
+  }
+
+  Future<void> _showWelcomeMessage() async {
+    final data = await _authService.getUserData();
+    final name = (data?['name'] as String?)?.trim();
+    final displayName = (name != null && name.isNotEmpty) ? name : 'Investor';
+
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Selamat datang, $displayName 👋'),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    });
   }
 
   @override

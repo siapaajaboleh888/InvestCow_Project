@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_client.dart';
 import '../services/portfolios_service.dart';
@@ -54,6 +55,38 @@ class _PasarPageState extends State<PasarPage> {
         });
       }
     }
+  }
+
+  Future<double> _getKasSaldo() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble('kas_saldo') ?? 0;
+  }
+
+  Future<void> _catatPengeluaranKas({
+    required double total,
+    required String productName,
+    required double quantity,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final saldoLama = prefs.getDouble('kas_saldo') ?? 0;
+    final saldoBaru = saldoLama - total;
+
+    final raw = prefs.getString('kas_riwayat');
+    List<dynamic> list = [];
+    if (raw != null && raw.isNotEmpty) {
+      list = jsonDecode(raw) as List<dynamic>;
+    }
+
+    list.insert(0, {
+      'jenis': 'Pengeluaran',
+      'nominal': total,
+      'metode': 'Pembelian sapi $productName ($quantity ekor)',
+      'tanggal': DateTime.now().toIso8601String(),
+      'status': 'Berhasil',
+    });
+
+    await prefs.setDouble('kas_saldo', saldoBaru);
+    await prefs.setString('kas_riwayat', jsonEncode(list));
   }
 
   @override
@@ -160,7 +193,11 @@ class _PasarPageState extends State<PasarPage> {
                       final p = _products[index];
                       final name = p['name']?.toString() ?? 'Produk';
                       final price = double.tryParse(p['price'].toString()) ?? 0;
-                      final quota = p['quota'];
+                      final quotaRaw = p['quota'];
+                      final quota = (quotaRaw is num)
+                          ? quotaRaw.toDouble()
+                          : double.tryParse(quotaRaw?.toString() ?? '0') ?? 0;
+                      final isSoldOut = quota <= 0;
                       final imageUrl = p['image_url']?.toString();
 
                       final priceText = price
@@ -219,16 +256,32 @@ class _PasarPageState extends State<PasarPage> {
                                     constraints: const BoxConstraints(),
                                     onPressed: () {
                                       final text =
-                                          'Investasi sapi "$name"\nHarga: Rp $priceText\nKuota: $quota ekor';
+                                          'Investasi sapi "$name"\nHarga: Rp $priceText\nKuota: ${quota.toStringAsFixed(0)} ekor';
                                       Share.share(text, subject: 'Promo Investasi Sapi');
                                     },
                                   ),
                                 ],
                               ),
-                              Text('Kuota tersedia: $quota ekor'),
+                              Text(
+                                isSoldOut
+                                    ? 'Kuota habis / sudah terjual'
+                                    : 'Kuota tersedia: ${quota.toStringAsFixed(0)} ekor',
+                                style: TextStyle(
+                                  color: isSoldOut ? Colors.red[700] : Colors.black87,
+                                  fontWeight: isSoldOut ? FontWeight.w600 : FontWeight.normal,
+                                ),
+                              ),
                             ],
                           ),
-                          trailing: ElevatedButton(
+                          trailing: isSoldOut
+                              ? const Text(
+                                  'Habis',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )
+                              : ElevatedButton(
                             onPressed: () async {
                               final qtyController = TextEditingController(text: '1');
                               final confirmed = await showDialog<bool>(
@@ -246,6 +299,20 @@ class _PasarPageState extends State<PasarPage> {
                                         Text('Produk: $name'),
                                         const SizedBox(height: 4),
                                         Text('Harga per ekor: Rp $priceText'),
+                                        const SizedBox(height: 4),
+                                        Builder(
+                                          builder: (context) {
+                                            final qtyPreview =
+                                                double.tryParse(qtyController.text.trim()) ?? 1;
+                                            final totalPreview = (qtyPreview * price)
+                                                .toStringAsFixed(0)
+                                                .replaceAllMapped(
+                                                  RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+                                                  (m) => '${m[1]}.',
+                                                );
+                                            return Text('Perkiraan total: Rp $totalPreview');
+                                          },
+                                        ),
                                         const SizedBox(height: 8),
                                         TextField(
                                           controller: qtyController,
@@ -287,6 +354,19 @@ class _PasarPageState extends State<PasarPage> {
                                 return;
                               }
 
+                              final totalHarga = price * qty;
+                              final saldoKas = await _getKasSaldo();
+                              if (saldoKas < totalHarga) {
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                        'Saldo kas tidak cukup untuk membeli $qty ekor $name.'),
+                                  ),
+                                );
+                                return;
+                              }
+
                               try {
                                 final portfolio = await _portfoliosService.getOrCreateDefault();
                                 final portfolioId = portfolio['id'] as int;
@@ -300,6 +380,19 @@ class _PasarPageState extends State<PasarPage> {
                                   occurredAt: DateTime.now(),
                                   note: 'Pembelian melalui Pasar Modal Sapi',
                                 );
+
+                                await _catatPengeluaranKas(
+                                  total: totalHarga,
+                                  productName: name,
+                                  quantity: qty,
+                                );
+
+                                setState(() {
+                                  final currentQuota = quota;
+                                  var newQuota = currentQuota - qty;
+                                  if (newQuota < 0) newQuota = 0;
+                                  _products[index]['quota'] = newQuota;
+                                });
 
                                 if (!mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(

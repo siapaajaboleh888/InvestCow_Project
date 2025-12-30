@@ -41,7 +41,9 @@ class _LoginPageState extends State<LoginPage> {
         if (!mounted) return;
 
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const MainScreen()),
+          MaterialPageRoute(
+            builder: (context) => const MainScreen(showWelcome: true),
+          ),
           (route) => false,
         );
       } catch (e) {
