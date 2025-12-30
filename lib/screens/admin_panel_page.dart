@@ -149,6 +149,8 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
     final formKey = GlobalKey<FormState>();
     final nameController =
         TextEditingController(text: existing != null ? existing['name']?.toString() : '');
+    final tickerController =
+        TextEditingController(text: existing != null ? existing['ticker_code']?.toString() : '');
     final descController = TextEditingController(
         text: existing != null ? existing['description']?.toString() : '');
     final priceController = TextEditingController(
@@ -176,6 +178,13 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
                     decoration: const InputDecoration(labelText: 'Nama Produk'),
                     validator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'Nama tidak boleh kosong' : null,
+                  ),
+                  TextFormField(
+                    controller: tickerController,
+                    decoration: const InputDecoration(labelText: 'Kode Saham (Ticker)'),
+                    maxLength: 5,
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Kode tidak boleh kosong' : null,
                   ),
                   TextFormField(
                     controller: descController,
@@ -237,6 +246,7 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
                   final token = await _authService.getToken();
                   final body = {
                     'name': nameController.text.trim(),
+                    'ticker_code': tickerController.text.trim().toUpperCase(),
                     'description': descController.text.trim().isEmpty
                         ? null
                         : descController.text.trim(),
@@ -244,6 +254,7 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
                     'quota': int.tryParse(quotaController.text.trim()) ?? 0,
                     'image_url': imageUrl,
                   };
+
 
                   http.Response res;
                   if (existing == null) {

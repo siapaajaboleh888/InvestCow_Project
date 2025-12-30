@@ -31,7 +31,7 @@ const upload = multer({ storage });
 router.get('/products-public', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, name, description, price, quota, image_url FROM products ORDER BY id DESC',
+      'SELECT id, name, ticker_code, description, price, prev_price, quota, image_url FROM products ORDER BY id DESC',
     );
     return res.json(rows);
   } catch (e) {
@@ -55,11 +55,12 @@ router.post(
   },
 );
 
+
 // Get all products
 router.get('/products', authMiddleware, adminOnly, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, name, description, price, quota, image_url FROM products ORDER BY id DESC',
+      'SELECT id, name, ticker_code, description, price, prev_price, quota, image_url FROM products ORDER BY id DESC',
     );
     return res.json(rows);
   } catch (e) {
@@ -71,14 +72,15 @@ router.get('/products', authMiddleware, adminOnly, async (req, res) => {
 // Create product
 router.post('/products', authMiddleware, adminOnly, async (req, res) => {
   try {
-    const { name, description, price, quota, image_url } = req.body || {};
+    const { name, ticker_code, description, price, quota, image_url } = req.body || {};
     if (!name || price == null) {
       return res.status(400).json({ message: 'Missing name or price' });
     }
     const [result] = await pool.query(
-      'INSERT INTO products (name, description, price, quota, image_url) VALUES (:name, :description, :price, :quota, :image_url)',
+      'INSERT INTO products (name, ticker_code, description, price, prev_price, quota, image_url) VALUES (:name, :ticker_code, :description, :price, :price, :quota, :image_url)',
       {
         name,
+        ticker_code: ticker_code || 'COW',
         description: description || null,
         price,
         quota: quota ?? 0,
@@ -87,7 +89,7 @@ router.post('/products', authMiddleware, adminOnly, async (req, res) => {
     );
     const id = result.insertId;
     const [rows] = await pool.query(
-      'SELECT id, name, description, price, quota, image_url FROM products WHERE id = :id',
+      'SELECT id, name, ticker_code, description, price, prev_price, quota, image_url FROM products WHERE id = :id',
       { id },
     );
     return res.status(201).json(rows[0]);
@@ -101,31 +103,96 @@ router.post('/products', authMiddleware, adminOnly, async (req, res) => {
 router.put('/products/:id', authMiddleware, adminOnly, async (req, res) => {
   try {
     const id = req.params.id;
-    const { name, description, price, quota, image_url } = req.body || {};
+    const { name, ticker_code, description, price, quota, image_url } = req.body || {};
+
+    // Get old price to move it to prev_price
+    const [oldRows] = await pool.query('SELECT price FROM products WHERE id = :id', { id });
+    const oldPrice = oldRows.length > 0 ? oldRows[0].price : price;
+
     const [result] = await pool.query(
-      'UPDATE products SET name = :name, description = :description, price = :price, quota = :quota, image_url = :image_url WHERE id = :id',
+      'UPDATE products SET name = :name, ticker_code = :ticker_code, description = :description, price = :price, prev_price = :prev_price, quota = :quota, image_url = :image_url WHERE id = :id',
       {
         id,
         name,
+        ticker_code,
         description: description || null,
         price,
+        prev_price: oldPrice, // Simpan harga lama sebagai referensi % perubahan
         quota,
         image_url: image_url || null,
       },
     );
+
+
     if (!result.affectedRows) {
       return res.status(404).json({ message: 'Not found' });
     }
+
+    // Record price history
+    await pool.query(
+      'INSERT INTO product_prices (product_id, price_open, price_high, price_low, price_close, volume) VALUES (:id, :open, :high, :low, :close, :volume)',
+      {
+        id,
+        open: oldPrice,
+        high: Math.max(oldPrice, price),
+        low: Math.min(oldPrice, price),
+        close: price,
+        volume: Math.floor(Math.random() * 100), // simulated volume
+      },
+    );
+
     const [rows] = await pool.query(
       'SELECT id, name, description, price, quota, image_url FROM products WHERE id = :id',
       { id },
     );
+
+    // Emit real-time update via socket.io
+    if (req.io) {
+      req.io.emit('price-update', {
+        productId: id,
+        newPrice: price,
+        timestamp: new Date().toISOString(),
+        candle: {
+          open: oldPrice,
+          high: Math.max(oldPrice, price),
+          low: Math.min(oldPrice, price),
+          close: price,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+
     return res.json(rows[0]);
   } catch (e) {
     console.error('update product error', e);
     return res.status(500).json({ message: 'Server error' });
   }
 });
+
+// Get price history for chart
+router.get('/products/:id/history', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const [rows] = await pool.query(
+      'SELECT * FROM product_prices WHERE product_id = :id ORDER BY timestamp DESC LIMIT 50',
+      { id },
+    );
+    // Transform to OHLC format expected by most charts
+    const history = rows.map((r) => ({
+      date: new Date(r.timestamp),
+      open: parseFloat(r.price_open),
+      high: parseFloat(r.price_high),
+      low: parseFloat(r.price_low),
+      close: parseFloat(r.price_close),
+      volume: parseFloat(r.volume),
+    }));
+    return res.json(history);
+  } catch (e) {
+    console.error('get history error', e);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 
 // Delete product
 router.delete('/products/:id', authMiddleware, adminOnly, async (req, res) => {

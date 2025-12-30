@@ -9,11 +9,12 @@ class ApiClient {
       : baseUrl = overrideBaseUrl ?? _defaultBaseUrl();
 
   static String _defaultBaseUrl() {
-    // Web: arahkan ke backend Node yang berjalan di port 8081
     if (kIsWeb) return 'http://127.0.0.1:8081';
-    // Non-web default: Android emulator typical host
-    return 'http://10.0.2.2:8080';
+    return 'http://10.0.2.2:8081';
   }
+
+  String get socketUrl => baseUrl;
+
 
   Uri uri(String path, [Map<String, dynamic>? query]) {
     return Uri.parse(baseUrl).replace(
