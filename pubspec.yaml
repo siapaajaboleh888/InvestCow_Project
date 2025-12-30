@@ -18,7 +18,7 @@ dependencies:
   file_picker: ^8.0.0
   share_plus: ^10.0.2
   socket_io_client: ^3.0.0
-  candlesticks: ^0.2.0
+  candlesticks: ^2.1.0
 
 
 dev_dependencies:

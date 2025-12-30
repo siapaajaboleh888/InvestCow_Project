@@ -39,6 +39,13 @@ class _PasarModalPageState extends State<PasarModalPage> {
     _fetchInitialData();
   }
 
+  double _toDouble(dynamic val) {
+    if (val == null) return 0.0;
+    if (val is num) return val.toDouble();
+    if (val is String) return double.tryParse(val) ?? 0.0;
+    return 0.0;
+  }
+
   void _initSocket() {
     final url = _apiClient.socketUrl;
     socket = IO.io(url, IO.OptionBuilder()
@@ -54,7 +61,7 @@ class _PasarModalPageState extends State<PasarModalPage> {
       if (data != null && _selectedProduct != null) {
         final productId = data['productId'].toString();
         if (productId == _selectedProduct!['id'].toString()) {
-          final newPrice = (data['newPrice'] as num).toDouble();
+          final newPrice = _toDouble(data['newPrice']);
           final candleData = data['candle'];
           
           setState(() {
@@ -69,10 +76,10 @@ class _PasarModalPageState extends State<PasarModalPage> {
             if (candleData != null) {
               final newCandle = Candle(
                 date: DateTime.parse(candleData['timestamp']),
-                high: (candleData['high'] as num).toDouble(),
-                low: (candleData['low'] as num).toDouble(),
-                open: (candleData['open'] as num).toDouble(),
-                close: (candleData['close'] as num).toDouble(),
+                high: _toDouble(candleData['high']),
+                low: _toDouble(candleData['low']),
+                open: _toDouble(candleData['open']),
+                close: _toDouble(candleData['close']),
                 volume: 1.0, 
               );
               
@@ -102,7 +109,7 @@ class _PasarModalPageState extends State<PasarModalPage> {
         _products = data.cast<Map<String, dynamic>>();
         if (_products.isNotEmpty) {
           _selectedProduct = _products[0];
-          _currentPrice = (_selectedProduct!['price'] as num).toDouble();
+          _currentPrice = _toDouble(_selectedProduct!['price']);
           await _fetchHistory(_selectedProduct!['id']);
         }
       } else {
@@ -123,25 +130,26 @@ class _PasarModalPageState extends State<PasarModalPage> {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as List;
         setState(() {
-          _candles = data.map((item) {
+          _candles = data.map<Candle>((item) {
             return Candle(
               date: DateTime.parse(item['date']),
-              high: (item['high'] as num).toDouble(),
-              low: (item['low'] as num).toDouble(),
-              open: (item['open'] as num).toDouble(),
-              close: (item['close'] as num).toDouble(),
-              volume: (item['volume'] as num).toDouble(),
+              high: _toDouble(item['high']),
+              low: _toDouble(item['low']),
+              open: _toDouble(item['open']),
+              close: _toDouble(item['close']),
+              volume: _toDouble(item['volume']),
             );
           }).toList();
           
           // If history is empty, add a dummy initial candle to visualizer
           if (_candles.isEmpty && _selectedProduct != null) {
+             final basePrice = _currentPrice > 0 ? _currentPrice : 1000.0;
              _candles.add(Candle(
                date: DateTime.now(),
-               high: _currentPrice,
-               low: _currentPrice,
-               open: _currentPrice,
-               close: _currentPrice,
+               high: basePrice * 1.01,
+               low: basePrice * 0.99,
+               open: basePrice,
+               close: basePrice,
                volume: 0,
              ));
           }
@@ -234,8 +242,8 @@ class _PasarModalPageState extends State<PasarModalPage> {
                         if (val != null) {
                           setState(() {
                             _selectedProduct = val;
-                            _currentPrice = (val['price'] as num).toDouble();
-                            final prevPrice = (val['prev_price'] as num).toDouble();
+                            _currentPrice = _toDouble(val['price']);
+                            final prevPrice = _toDouble(val['prev_price']);
                             _percentChange = prevPrice != 0 
                                 ? ((_currentPrice - prevPrice) / prevPrice) * 100 
                                 : 0.0;
@@ -302,15 +310,20 @@ class _PasarModalPageState extends State<PasarModalPage> {
               height: 350,
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Candlesticks(
-                candles: _candles,
-                style: CandlesticksStyle.dark(
-                   primaryColor: const Color(0xFF131722),
-                   secondaryColor: const Color(0xFF1E222D),
-                   bullColor: Colors.greenAccent,
-                   bearColor: Colors.redAccent,
-                ),
-              ),
+              child: _candles.isEmpty 
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(color: Colors.cyan),
+                        SizedBox(height: 8),
+                        Text('Memuat data chart...', style: TextStyle(color: Colors.grey)),
+                      ],
+                    ),
+                  )
+                : Candlesticks(
+                    candles: _candles,
+                  ),
             ),
 
             // Trading Panel
