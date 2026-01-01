@@ -31,7 +31,7 @@ const upload = multer({ storage });
 router.get('/products-public', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, name, ticker_code, description, price, prev_price, quota, image_url FROM products ORDER BY id DESC',
+      'SELECT id, name, ticker_code, description, price, prev_price, target_price, quota, image_url FROM products ORDER BY id DESC',
     );
     return res.json(rows);
   } catch (e) {
@@ -60,7 +60,7 @@ router.post(
 router.get('/products', authMiddleware, adminOnly, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, name, ticker_code, description, price, prev_price, quota, image_url FROM products ORDER BY id DESC',
+      'SELECT id, name, ticker_code, description, price, prev_price, target_price, quota, image_url FROM products ORDER BY id DESC',
     );
     return res.json(rows);
   } catch (e) {
@@ -72,17 +72,18 @@ router.get('/products', authMiddleware, adminOnly, async (req, res) => {
 // Create product
 router.post('/products', authMiddleware, adminOnly, async (req, res) => {
   try {
-    const { name, ticker_code, description, price, quota, image_url } = req.body || {};
+    const { name, ticker_code, description, price, target_price, quota, image_url } = req.body || {};
     if (!name || price == null) {
       return res.status(400).json({ message: 'Missing name or price' });
     }
     const [result] = await pool.query(
-      'INSERT INTO products (name, ticker_code, description, price, prev_price, quota, image_url) VALUES (:name, :ticker_code, :description, :price, :price, :quota, :image_url)',
+      'INSERT INTO products (name, ticker_code, description, price, prev_price, target_price, quota, image_url) VALUES (:name, :ticker_code, :description, :price, :price, :target_price, :quota, :image_url)',
       {
         name,
         ticker_code: ticker_code || 'COW',
         description: description || null,
         price,
+        target_price: target_price || null,
         quota: quota ?? 0,
         image_url: image_url || null,
       },
@@ -103,14 +104,14 @@ router.post('/products', authMiddleware, adminOnly, async (req, res) => {
 router.put('/products/:id', authMiddleware, adminOnly, async (req, res) => {
   try {
     const id = req.params.id;
-    const { name, ticker_code, description, price, quota, image_url } = req.body || {};
+    const { name, ticker_code, description, price, target_price, quota, image_url } = req.body || {};
 
     // Get old price to move it to prev_price
     const [oldRows] = await pool.query('SELECT price FROM products WHERE id = :id', { id });
     const oldPrice = oldRows.length > 0 ? oldRows[0].price : price;
 
     const [result] = await pool.query(
-      'UPDATE products SET name = :name, ticker_code = :ticker_code, description = :description, price = :price, prev_price = :prev_price, quota = :quota, image_url = :image_url WHERE id = :id',
+      'UPDATE products SET name = :name, ticker_code = :ticker_code, description = :description, price = :price, prev_price = :prev_price, target_price = :target_price, quota = :quota, image_url = :image_url WHERE id = :id',
       {
         id,
         name,
@@ -118,6 +119,7 @@ router.put('/products/:id', authMiddleware, adminOnly, async (req, res) => {
         description: description || null,
         price,
         prev_price: oldPrice, // Simpan harga lama sebagai referensi % perubahan
+        target_price: target_price || null,
         quota,
         image_url: image_url || null,
       },

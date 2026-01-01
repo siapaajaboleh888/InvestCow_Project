@@ -103,6 +103,12 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
     }
   }
 
+  String _formatCurrencyPrice(dynamic value) {
+    if (value == null) return 'Rp 0';
+    final n = double.tryParse(value.toString()) ?? 0.0;
+    return 'Rp ${n.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
+  }
+
   Future<String?> _uploadImage() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -155,6 +161,8 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
         text: existing != null ? existing['description']?.toString() : '');
     final priceController = TextEditingController(
         text: existing != null ? existing['price']?.toString() : '');
+    final targetPriceController = TextEditingController(
+        text: existing != null ? existing['target_price']?.toString() : '');
     final quotaController = TextEditingController(
         text: existing != null ? existing['quota']?.toString() : '');
     String? imageUrl = existing != null ? existing['image_url']?.toString() : null;
@@ -193,10 +201,21 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
                   ),
                   TextFormField(
                     controller: priceController,
-                    decoration: const InputDecoration(labelText: 'Harga (Rp)'),
+                    decoration: const InputDecoration(
+                      labelText: 'Harga Saat Ini (Rp)',
+                      helperText: 'Harga awal atau harga paksa saat ini',
+                    ),
                     keyboardType: TextInputType.number,
                     validator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'Harga tidak boleh kosong' : null,
+                  ),
+                  TextFormField(
+                    controller: targetPriceController,
+                    decoration: const InputDecoration(
+                      labelText: 'Target Harga (Rp)',
+                      helperText: 'Sistem akan menggerakkan harga ke target ini',
+                    ),
+                    keyboardType: TextInputType.number,
                   ),
                   TextFormField(
                     controller: quotaController,
@@ -251,6 +270,9 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
                         ? null
                         : descController.text.trim(),
                     'price': double.tryParse(priceController.text.trim()) ?? 0,
+                    'target_price': targetPriceController.text.trim().isEmpty
+                        ? null
+                        : double.tryParse(targetPriceController.text.trim()),
                     'quota': int.tryParse(quotaController.text.trim()) ?? 0,
                     'image_url': imageUrl,
                   };
@@ -396,7 +418,15 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
                             )
                           : const Icon(Icons.storefront),
                       title: Text(name),
-                      subtitle: Text('Harga: $price • Kuota: $quota'),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Harga: ${_formatCurrencyPrice(price)}'),
+                          if (p['target_price'] != null)
+                             Text('Target: ${_formatCurrencyPrice(p['target_price'])}', style: const TextStyle(color: Colors.cyan, fontWeight: FontWeight.bold)),
+                          Text('Kuota: $quota'),
+                        ],
+                      ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [

@@ -40,10 +40,14 @@ class _PasarModalPageState extends State<PasarModalPage> {
   }
 
   double _toDouble(dynamic val) {
-    if (val == null) return 0.0;
-    if (val is num) return val.toDouble();
-    if (val is String) return double.tryParse(val) ?? 0.0;
-    return 0.0;
+    if (val == null) return 10.0;
+    double? d;
+    if (val is num) d = val.toDouble();
+    if (val is String) d = double.tryParse(val);
+    
+    // Minimum 10.0 to avoid any log issues or tiny numbers causing division problems
+    if (d == null || d <= 0 || d.isNaN || d.isInfinite) return 10.0; 
+    return d;
   }
 
   void _initSocket() {
@@ -68,25 +72,42 @@ class _PasarModalPageState extends State<PasarModalPage> {
             _prevPrice = _currentPrice;
             _currentPrice = newPrice;
             _isPriceUp = _currentPrice >= _prevPrice;
-            _percentChange = _prevPrice != 0 
+            _percentChange = _prevPrice > 0.01 
                 ? ((_currentPrice - _prevPrice) / _prevPrice) * 100 
                 : 0.0;
             
             // Add or update latest candle
             if (candleData != null) {
+              double h = _toDouble(candleData['high']);
+              double l = _toDouble(candleData['low']);
+              double o = _toDouble(candleData['open']);
+              double c = _toDouble(candleData['close']);
+              
+              if (h == l) { h += 1.0; l -= 1.0; }
+
               final newCandle = Candle(
-                date: DateTime.parse(candleData['timestamp']),
-                high: _toDouble(candleData['high']),
-                low: _toDouble(candleData['low']),
-                open: _toDouble(candleData['open']),
-                close: _toDouble(candleData['close']),
+                date: DateTime.tryParse(candleData['timestamp'].toString()) ?? DateTime.now(),
+                high: h,
+                low: l,
+                open: o,
+                close: c,
                 volume: 1.0, 
               );
               
-              // We usually prepend for the candlestick widget
               _candles.insert(0, newCandle);
-              // Limit history size
-              if (_candles.length > 100) _candles.removeLast();
+              if (_candles.length > 200) _candles.removeLast();
+
+              // CRITICAL: If still only 1 candle, add dummy to prevent crash
+              if (_candles.length == 1) {
+                 _candles.add(Candle(
+                   date: newCandle.date.subtract(const Duration(minutes: 1)),
+                   high: newCandle.high,
+                   low: newCandle.low,
+                   open: newCandle.open,
+                   close: newCandle.close,
+                   volume: 0,
+                 ));
+              }
             }
           });
         }
@@ -113,10 +134,10 @@ class _PasarModalPageState extends State<PasarModalPage> {
           await _fetchHistory(_selectedProduct!['id']);
         }
       } else {
-        throw Exception('Gagal memuat produk');
+        throw Exception('Gagal memuat produk: ${res.statusCode}');
       }
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -131,27 +152,55 @@ class _PasarModalPageState extends State<PasarModalPage> {
         final data = jsonDecode(res.body) as List;
         setState(() {
           _candles = data.map<Candle>((item) {
+            double h = _toDouble(item['high']);
+            double l = _toDouble(item['low']);
+            double o = _toDouble(item['open']);
+            double c = _toDouble(item['close']);
+            
+            if (h == l) { h += 1.0; l -= 1.0; }
+
             return Candle(
-              date: DateTime.parse(item['date']),
-              high: _toDouble(item['high']),
-              low: _toDouble(item['low']),
-              open: _toDouble(item['open']),
-              close: _toDouble(item['close']),
+              date: DateTime.tryParse(item['date'].toString()) ?? DateTime.now(),
+              high: h,
+              low: l,
+              open: o,
+              close: c,
               volume: _toDouble(item['volume']),
             );
           }).toList();
           
-          // If history is empty, add a dummy initial candle to visualizer
-          if (_candles.isEmpty && _selectedProduct != null) {
-             final basePrice = _currentPrice > 0 ? _currentPrice : 1000.0;
-             _candles.add(Candle(
-               date: DateTime.now(),
+          // Ensure at least 2 candles for the chart stability
+          if (_candles.length < 2 && _selectedProduct != null) {
+             final basePrice = _currentPrice > 10.0 ? _currentPrice : 1000.0;
+             final now = DateTime.now();
+             
+             List<Candle> dummy = [];
+             // First candle
+             dummy.add(Candle(
+               date: now.subtract(const Duration(minutes: 1)),
+               high: basePrice * 1.005,
+               low: basePrice * 0.995,
+               open: basePrice * 0.998,
+               close: basePrice,
+               volume: 1,
+             ));
+             // Second candle
+             dummy.add(Candle(
+               date: now,
                high: basePrice * 1.01,
                low: basePrice * 0.99,
                open: basePrice,
                close: basePrice,
-               volume: 0,
+               volume: 1,
              ));
+             
+             // Prepend existing if any, or just use dummy
+             if (_candles.isNotEmpty) {
+               dummy.removeLast(); // keep the existing one as latest
+               dummy.addAll(_candles);
+             }
+             
+             _candles = dummy.reversed.toList();
           }
         });
       }
@@ -310,18 +359,19 @@ class _PasarModalPageState extends State<PasarModalPage> {
               height: 350,
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: _candles.isEmpty 
+              child: _candles.length < 2 
                 ? const Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         CircularProgressIndicator(color: Colors.cyan),
                         SizedBox(height: 8),
-                        Text('Memuat data chart...', style: TextStyle(color: Colors.grey)),
+                        Text('Memproses data pasar...', style: TextStyle(color: Colors.grey)),
                       ],
                     ),
                   )
                 : Candlesticks(
+                    key: ValueKey('${_selectedProduct?['id']}_${_candles.length}'),
                     candles: _candles,
                   ),
             ),

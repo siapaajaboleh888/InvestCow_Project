@@ -22,6 +22,10 @@ const io = new Server(server, {
   },
 });
 
+// Start Real-time Price Engine
+const PriceEngine = require('./services/PriceEngine');
+PriceEngine.init(io);
+
 app.use(helmet());
 app.use(cors({ origin: '*' }));
 app.use(express.json());
@@ -60,7 +64,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Server error' });
 });
 
-const port = 8081; 
+const port = 8081;
 server.listen(port, () => {
   console.log(`investcow backend running on http://localhost:${port}`);
 });
