@@ -165,6 +165,8 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
         text: existing != null ? existing['target_price']?.toString() : '');
     final quotaController = TextEditingController(
         text: existing != null ? existing['quota']?.toString() : '');
+    final sentimentController = TextEditingController(
+        text: existing != null ? existing['market_sentiment']?.toString() : '');
     String? imageUrl = existing != null ? existing['image_url']?.toString() : null;
 
     await showDialog(
@@ -224,6 +226,14 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
                     validator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'Kuota tidak boleh kosong' : null,
                   ),
+                  TextFormField(
+                    controller: sentimentController,
+                    decoration: const InputDecoration(
+                      labelText: 'Sentimen Pasar / Berita',
+                      helperText: 'Contoh: Rumput melimpah, harga diprediksi naik!',
+                    ),
+                    maxLines: 2,
+                  ),
                       const SizedBox(height: 12),
                       Row(
                         children: [
@@ -275,6 +285,9 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
                         : double.tryParse(targetPriceController.text.trim()),
                     'quota': int.tryParse(quotaController.text.trim()) ?? 0,
                     'image_url': imageUrl,
+                    'market_sentiment': sentimentController.text.trim().isEmpty
+                        ? null
+                        : sentimentController.text.trim(),
                   };
 
 
@@ -408,7 +421,9 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
                           ? ClipRRect(
                               borderRadius: BorderRadius.circular(6),
                               child: Image.network(
-                                imageUrl,
+                                imageUrl.startsWith('http')
+                                    ? imageUrl
+                                    : '${_client.baseUrl}$imageUrl',
                                 width: 48,
                                 height: 48,
                                 fit: BoxFit.cover,

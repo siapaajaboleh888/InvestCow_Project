@@ -4,6 +4,7 @@ import '../services/logout_service.dart';
 import 'profil_page.dart';
 import 'pengaturan_page.dart';
 import 'faq_page.dart';
+import 'riwayat_page.dart';
 import 'tentang_aplikasi_page.dart';
 import 'login_page.dart';
 import 'admin_panel_page.dart';
@@ -159,6 +160,17 @@ class _AkunPageState extends State<AkunPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const FAQPage()),
+                );
+              },
+            ),
+            _buildMenuItem(
+              context,
+              icon: Icons.history,
+              title: 'Riwayat Transaksi',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const RiwayatPage()),
                 );
               },
             ),

@@ -7,20 +7,18 @@ class TransactionsService {
   final _client = ApiClient();
   final _auth = AuthService();
 
-  Future<List<Map<String, dynamic>>> list({
-    required int portfolioId,
+  Future<List<Map<String, dynamic>>> listAll({
     int limit = 50,
     int offset = 0,
   }) async {
     final token = await _auth.getToken();
-    final uri = _client.uri('/transactions', {
-      'portfolio_id': portfolioId.toString(),
+    final uri = _client.uri('/transactions/all', {
       'limit': limit.toString(),
       'offset': offset.toString(),
     });
     final res = await http.get(uri, headers: _client.jsonHeaders(token: token));
     if (res.statusCode != 200) {
-      throw Exception('Gagal memuat transaksi (${res.statusCode})');
+      throw Exception('Gagal memuat riwayat transaksi (${res.statusCode})');
     }
     final data = jsonDecode(res.body) as List<dynamic>;
     return data.cast<Map<String, dynamic>>();
@@ -55,5 +53,15 @@ class TransactionsService {
       throw Exception('Gagal membuat transaksi (${res.statusCode})');
     }
     return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+  Future<List<Map<String, dynamic>>> getPortfolioSummary() async {
+    final token = await _auth.getToken();
+    final uri = _client.uri('/transactions/portfolio-summary');
+    final res = await http.get(uri, headers: _client.jsonHeaders(token: token));
+    if (res.statusCode != 200) {
+      throw Exception('Gagal memuat ringkasan portofolio (${res.statusCode})');
+    }
+    final data = jsonDecode(res.body) as List<dynamic>;
+    return data.cast<Map<String, dynamic>>();
   }
 }

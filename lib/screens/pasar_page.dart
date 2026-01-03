@@ -219,7 +219,9 @@ class _PasarPageState extends State<PasarPage> {
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
                                   child: Image.network(
-                                    imageUrl,
+                                    imageUrl.startsWith('http')
+                                        ? imageUrl
+                                        : '${_client.baseUrl}$imageUrl',
                                     width: 56,
                                     height: 56,
                                     fit: BoxFit.cover,

@@ -288,4 +288,30 @@ class AuthService {
 
     await logout();
   }
+
+  Future<Map<String, dynamic>> getMe() async {
+    final client = ApiClient();
+    final token = await getToken();
+    final uri = client.uri('/auth/me');
+    final res = await http.get(uri, headers: client.jsonHeaders(token: token));
+    if (res.statusCode != 200) {
+      throw Exception('Gagal mengambil data user (${res.statusCode})');
+    }
+    return jsonDecode(res.body);
+  }
+
+  Future<void> topUp(double amount) async {
+    final client = ApiClient();
+    final token = await getToken();
+    final uri = client.uri('/auth/topup');
+    final res = await http.post(
+      uri,
+      headers: client.jsonHeaders(token: token),
+      body: jsonEncode({'amount': amount}),
+    );
+    if (res.statusCode != 200) {
+      final data = jsonDecode(res.body);
+      throw Exception(data['message'] ?? 'Gagal top up (${res.statusCode})');
+    }
+  }
 }

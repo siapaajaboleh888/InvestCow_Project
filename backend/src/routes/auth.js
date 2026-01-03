@@ -43,9 +43,37 @@ router.post('/login', async (req, res) => {
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ message: 'Invalid credentials' });
     const token = jwt.sign({}, process.env.JWT_SECRET, { subject: String(user.id), expiresIn: '7d' });
-    return res.json({ id: user.id, email, display_name: user.display_name, role: user.role || 'user', token });
+    return res.json({ id: user.id, email, display_name: user.display_name, role: user.role || 'user', balance: user.balance || 0, token });
   } catch (e) {
     console.error('login error:', e);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get profile
+router.get('/me', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const [rows] = await pool.query('SELECT id, email, display_name, role, balance FROM users WHERE id = :id', { id: userId });
+    if (!rows.length) return res.status(404).json({ message: 'User not found' });
+    return res.json(rows[0]);
+  } catch (e) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Top-up balance
+router.post('/topup', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { amount } = req.body || {};
+    if (!amount || amount <= 0) return res.status(400).json({ message: 'Invalid amount' });
+
+    await pool.query('UPDATE users SET balance = balance + :amount WHERE id = :idx', { amount, idx: userId });
+
+    const [rows] = await pool.query('SELECT balance FROM users WHERE id = :id', { id: userId });
+    return res.json({ message: 'Topup successful', balance: rows[0].balance });
+  } catch (e) {
     return res.status(500).json({ message: 'Server error' });
   }
 });

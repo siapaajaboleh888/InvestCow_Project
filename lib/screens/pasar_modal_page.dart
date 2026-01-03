@@ -2,10 +2,29 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import 'dart:convert';
 import '../services/api_client.dart';
+import '../services/auth_service.dart';
+import '../services/transactions_service.dart';
+import '../services/portfolios_service.dart';
+import 'riwayat_page.dart';
 import 'package:http/http.dart' as http;
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:candlesticks/candlesticks.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
+
+class CurrencyInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    if (newValue.selection.baseOffset == 0) return newValue;
+    double value = double.parse(newValue.text.replaceAll('.', ''));
+    final formatter = NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0);
+    String newText = formatter.format(value).trim();
+    return newValue.copyWith(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newText.length),
+    );
+  }
+}
 
 class PasarModalPage extends StatefulWidget {
   const PasarModalPage({super.key});
@@ -16,6 +35,9 @@ class PasarModalPage extends StatefulWidget {
 
 class _PasarModalPageState extends State<PasarModalPage> {
   final _apiClient = ApiClient();
+  final _authService = AuthService();
+  final _trxService = TransactionsService();
+  final _portfolioService = PortfoliosService();
   IO.Socket? socket;
   
   // State
@@ -24,19 +46,41 @@ class _PasarModalPageState extends State<PasarModalPage> {
   List<Candle> _candles = [];
   bool _isLoading = true;
   String? _error;
-  int quantity = 1;
+  
+  double _userBalance = 0;
+  String _displayName = "";
+  List<Map<String, dynamic>> _portfolioSummary = [];
+  final TextEditingController _amountController = TextEditingController(text: '1.000.000');
 
   // Real-time values
   double _currentPrice = 0;
   double _prevPrice = 0;
   bool _isPriceUp = true;
   double _percentChange = 0.0;
+  String? _marketSentiment;
 
   @override
   void initState() {
     super.initState();
     _initSocket();
     _fetchInitialData();
+    _fetchUserData();
+  }
+
+  Future<void> _fetchUserData() async {
+    try {
+      final user = await _authService.getMe();
+      final summary = await _trxService.getPortfolioSummary();
+      if (mounted) {
+        setState(() {
+          _userBalance = _toDouble(user['balance']);
+          _displayName = user['display_name'] ?? "User";
+          _portfolioSummary = summary;
+        });
+      }
+    } catch (e) {
+      print('Error fetching user data: $e');
+    }
   }
 
   double _toDouble(dynamic val) {
@@ -75,6 +119,7 @@ class _PasarModalPageState extends State<PasarModalPage> {
             _percentChange = _prevPrice > 0.01 
                 ? ((_currentPrice - _prevPrice) / _prevPrice) * 100 
                 : 0.0;
+            _marketSentiment = data['marketSentiment']?.toString();
             
             // Add or update latest candle
             if (candleData != null) {
@@ -131,6 +176,7 @@ class _PasarModalPageState extends State<PasarModalPage> {
         if (_products.isNotEmpty) {
           _selectedProduct = _products[0];
           _currentPrice = _toDouble(_selectedProduct!['price']);
+          _marketSentiment = _selectedProduct!['market_sentiment']?.toString();
           await _fetchHistory(_selectedProduct!['id']);
         }
       } else {
@@ -260,14 +306,51 @@ class _PasarModalPageState extends State<PasarModalPage> {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const RiwayatPage()));
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _fetchInitialData,
+            onPressed: () {
+              _fetchInitialData();
+              _fetchUserData();
+            },
           ),
         ],
       ),
       body: SingleChildScrollView(
         child: Column(
           children: [
+            // User Greeting & Balance
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1E222D),
+                border: Border(bottom: BorderSide(color: Colors.white10)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Halo, $_displayName', style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                      const Text('Saldo Anda:', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      Text(_formatCurrency(_userBalance), style: const TextStyle(color: Colors.greenAccent, fontSize: 18, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: _showTopUpDialog,
+                    icon: const Icon(Icons.add_card, size: 16),
+                    label: const Text('Top Up'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.cyan[700], foregroundColor: Colors.white),
+                  )
+                ],
+              ),
+            ),
             // Product Selector & Price
             Container(
               padding: const EdgeInsets.all(16),
@@ -297,6 +380,7 @@ class _PasarModalPageState extends State<PasarModalPage> {
                                 ? ((_currentPrice - prevPrice) / prevPrice) * 100 
                                 : 0.0;
                             _isPriceUp = _currentPrice >= prevPrice;
+                            _marketSentiment = val['market_sentiment']?.toString();
                             _candles = [];
                           });
                           _fetchHistory(val['id']);
@@ -350,6 +434,36 @@ class _PasarModalPageState extends State<PasarModalPage> {
                       )
                     ],
                   ),
+                  if (_selectedProduct?['description'] != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12.0),
+                      child: Text(
+                        _selectedProduct!['description'],
+                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                    ),
+                  if (_marketSentiment != null && _marketSentiment!.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(top: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.cyan.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.cyan.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.newspaper, color: Colors.cyanAccent, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _marketSentiment!,
+                              style: const TextStyle(color: Colors.cyanAccent, fontSize: 12, fontStyle: FontStyle.italic),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -389,48 +503,36 @@ class _PasarModalPageState extends State<PasarModalPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Order Eksekusi',
-                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    'Investasi Nominal',
+                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Jumlah (Ekor)', style: TextStyle(color: Colors.grey)),
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: () => setState(() => quantity = max(1, quantity - 1)),
-                            icon: const Icon(Icons.remove_circle, color: Colors.cyan),
-                          ),
-                          Text(
-                            '$quantity',
-                            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-                          ),
-                          IconButton(
-                            onPressed: () => setState(() => quantity++),
-                            icon: const Icon(Icons.add_circle, color: Colors.cyan),
-                          ),
-                        ],
-                      )
-                    ],
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _amountController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly, CurrencyInputFormatter()],
+                    style: const TextStyle(color: Colors.cyanAccent, fontSize: 24, fontWeight: FontWeight.bold),
+                    decoration: InputDecoration(
+                      prefixText: 'Rp ',
+                      prefixStyle: const TextStyle(color: Colors.grey, fontSize: 18),
+                      enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white24), borderRadius: BorderRadius.circular(8)),
+                      focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.cyan), borderRadius: BorderRadius.circular(8)),
+                      filled: true,
+                      fillColor: Colors.black26,
+                    ),
+                    onChanged: (val) => setState(() {}),
                   ),
-                  const Divider(color: Colors.white10, height: 32),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Total Investasi', style: TextStyle(color: Colors.grey)),
-                      Text(
-                        _formatCurrency(_currentPrice * quantity),
-                        style: const TextStyle(color: Colors.cyanAccent, fontSize: 20, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
+                  const SizedBox(height: 12),
+                  if (_selectedProduct != null)
+                    Text(
+                      'Estimasi: ${(_toDouble(_amountController.text.replaceAll('.', '')) / _currentPrice).toStringAsFixed(2)} Ekor ${_selectedProduct!['name']}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
                   const SizedBox(height: 24),
                   Row(
                     children: [
                       Expanded(
-                        child: _tradeButton('BELI', Colors.greenAccent, () => _handleTrade('BUY')),
+                        child: _tradeButton('INVESTASI / BELI', Colors.greenAccent, () => _handleTrade('BUY')),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -441,6 +543,42 @@ class _PasarModalPageState extends State<PasarModalPage> {
                 ],
               ),
             ),
+
+            // Portfolio Summary
+            if (_portfolioSummary.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E222D),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Portofolio Sapi Saya', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    ..._portfolioSummary.map((item) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(item['symbol'] ?? 'COW', style: const TextStyle(color: Colors.white70)),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text('${_toDouble(item['total_quantity']).toStringAsFixed(2)} Ekor', style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
+                                Text(_formatCurrency(_toDouble(item['total_investment'])), style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -461,26 +599,217 @@ class _PasarModalPageState extends State<PasarModalPage> {
     );
   }
 
-  void _handleTrade(String type) {
+  void _showTopUpDialog() {
+    final TextEditingController topUpCtrl = TextEditingController(text: '0');
+    String selectedMethod = 'BCA';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1E222D),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 20),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: Colors.cyan.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.account_balance_wallet, color: Colors.cyan, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text('Top Up Saldo', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                
+                const Text('Masukkan Nominal', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: topUpCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, CurrencyInputFormatter()],
+                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                  decoration: InputDecoration(
+                    prefixText: 'Rp ',
+                    prefixStyle: const TextStyle(color: Colors.grey, fontSize: 20),
+                    enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white10), borderRadius: BorderRadius.circular(12)),
+                    focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.cyan), borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: Colors.black26,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                const Text('Nominal Cepat', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [50000, 100000, 200000, 500000, 1000000].map((amt) {
+                    final formattedAmt = NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(amt).trim();
+                    return InkWell(
+                      onTap: () => setModalState(() => topUpCtrl.text = formattedAmt),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: topUpCtrl.text == formattedAmt ? Colors.cyan.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+                          border: Border.all(color: topUpCtrl.text == formattedAmt ? Colors.cyan : Colors.white10),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(_formatCurrency(amt.toDouble()), style: const TextStyle(color: Colors.white, fontSize: 12)),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 24),
+                
+                const Text('Pilih Metode Pembayaran', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                const SizedBox(height: 12),
+                GridView.count(
+                  shrinkWrap: true,
+                  crossAxisCount: 3,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 1.2,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    _buildPaymentItem('BCA', 'B', Colors.blue, selectedMethod, (val) => setModalState(() => selectedMethod = val)),
+                    _buildPaymentItem('Mandiri', 'M', Colors.orange, selectedMethod, (val) => setModalState(() => selectedMethod = val)),
+                    _buildPaymentItem('BNI', 'B', Colors.deepOrange, selectedMethod, (val) => setModalState(() => selectedMethod = val)),
+                    _buildPaymentItem('BRI', 'B', Colors.indigo, selectedMethod, (val) => setModalState(() => selectedMethod = val)),
+                    _buildPaymentItem('Dana', 'D', Colors.blueAccent, selectedMethod, (val) => setModalState(() => selectedMethod = val)),
+                    _buildPaymentItem('OVO', 'O', Colors.purple, selectedMethod, (val) => setModalState(() => selectedMethod = val)),
+                    _buildPaymentItem('GoPay', 'G', Colors.green, selectedMethod, (val) => setModalState(() => selectedMethod = val)),
+                    _buildPaymentItem('ShopeePay', 'S', Colors.redAccent, selectedMethod, (val) => setModalState(() => selectedMethod = val)),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      try {
+                        final amt = double.tryParse(topUpCtrl.text.replaceAll('.', '')) ?? 0;
+                        if (amt <= 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Masukkan nominal yang valid')));
+                          return;
+                        }
+                        await _authService.topUp(amt);
+                        if (!mounted) return;
+                        Navigator.pop(context);
+                        _fetchUserData();
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Top Up ${_formatCurrency(amt)} via $selectedMethod Berhasil!'),
+                          backgroundColor: Colors.green,
+                        ));
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.redAccent));
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.cyan, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    child: const Text('Top Up Sekarang', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentItem(String name, String initial, Color color, String current, Function(String) onSelect) {
+    bool isSelected = current == name;
+    return InkWell(
+      onTap: () => onSelect(name),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isSelected ? color.withOpacity(0.15) : Colors.white.withOpacity(0.05),
+          border: Border.all(color: isSelected ? color : Colors.white10, width: 2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8)),
+              child: Text(initial, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+            const SizedBox(height: 4),
+            Text(name, style: TextStyle(color: isSelected ? Colors.white : Colors.white60, fontSize: 10, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleTrade(String type) async {
     if (_selectedProduct == null) return;
+    
+    final nominal = double.tryParse(_amountController.text.replaceAll('.', '')) ?? 0;
+    if (nominal <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Masukkan nominal investasi yang valid')));
+      return;
+    }
+
+    if (type == 'BUY' && nominal > _userBalance) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Saldo tidak mencukupi. Silakan Top Up!'), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+
+    final qty = nominal / _currentPrice;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E222D),
-        title: Text('Konfirmasi $type', style: const TextStyle(color: Colors.white)),
+        title: Text('Konfirmasi ${type == 'BUY' ? 'Investasi' : 'Penjualan'}', style: const TextStyle(color: Colors.white)),
         content: Text(
-          'Anda yakin ingin ${type == 'BUY' ? 'membeli' : 'menjual'} $quantity ekor ${_selectedProduct!['name']} seharga ${_formatCurrency(_currentPrice * quantity)}?',
+          'Anda akan ${type == 'BUY' ? 'menginvestasikan' : 'menjual'} ${_formatCurrency(nominal)} (${qty.toStringAsFixed(2)} Ekor) pada ${_selectedProduct!['name']}. Lanjutkan?',
           style: const TextStyle(color: Colors.grey),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: type == 'BUY' ? Colors.green : Colors.red),
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Pesanan $type Berhasil Ditempatkan!'), backgroundColor: Colors.cyan),
-              );
+              try {
+                final portfolio = await _portfolioService.getOrCreateDefault();
+                await _trxService.create(
+                  portfolioId: portfolio['id'],
+                  type: type.toLowerCase(),
+                  symbol: _selectedProduct!['ticker_code'],
+                  quantity: qty,
+                  price: _currentPrice,
+                  occurredAt: DateTime.now(),
+                );
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Transaksi ${type == 'BUY' ? 'Pembelian' : 'Penjualan'} Berhasil!'), backgroundColor: Colors.green),
+                );
+                _fetchUserData(); // Refresh balance & portfolio
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: $e'), backgroundColor: Colors.redAccent),
+                );
+              }
             },
             child: const Text('Konfirmasi'),
           ),

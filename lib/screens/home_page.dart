@@ -107,11 +107,11 @@ class HomePage extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      '• Sapi Limosin – Pertumbuhan cepat, badan panjang dan berotot, cocok untuk penggemukan.\n'
-                      '• Sapi Simental – Ukuran besar dengan pertumbuhan bobot yang baik, banyak dipakai untuk sapi kurban atau potong.\n'
-                      '• Sapi Bali – Ukuran sedang, adaptif terhadap iklim tropis, konsumsi pakan relatif lebih efisien.\n'
-                      '• Sapi PO (Peranakan Ongole) – Tahan terhadap kondisi lingkungan kering dan panas, banyak dijumpai di Indonesia.\n'
-                      '• Sapi Brahman – Memiliki punuk dan gelambir, tahan terhadap iklim panas dan parasit tertentu.',
+                      '• Sapi Brahman – Daya tahan tinggi terhadap iklim tropis, memiliki punuk dan gelambir khas.\n'
+                      '• Sapi Bali – Sapi asli Indonesia dengan kualitas daging yang sangat baik dan rendah lemak.\n'
+                      '• Sapi Madura – Sapi pekerja yang tangguh dengan daging empuk dan gurih.\n'
+                      '• Sapi Limousin – Sapi asal Perancis dengan pertumbuhan otot sangat cepat dan karkas tinggi.\n'
+                      '• Sapi Angus – Kualitas premium, sangat dicari untuk steak dan olahan daging mewah.',
                       textAlign: TextAlign.justify,
                       style: TextStyle(fontSize: 13, height: 1.5),
                     ),
