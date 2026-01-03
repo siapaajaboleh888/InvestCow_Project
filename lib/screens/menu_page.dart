@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'kas_page.dart';
-import 'pasar_page.dart';
 import 'kesehatan_page.dart';
-import 'penjualan_page.dart';
 import 'kandang_page.dart';
-import 'pembayaran_page.dart';
+import 'cctv_page.dart';
+import 'transaksi_page.dart';
 import '../main.dart';
 
 class MenuPage extends StatelessWidget {
@@ -49,50 +48,24 @@ class MenuPage extends StatelessWidget {
                 childAspectRatio: 1.05, // Sedikit lebih lebar
                 children: [
                   MenuCard(
-                    icon: Icons.account_balance_wallet,
-                    title: 'Kas',
-                    color: Colors.green[400]!,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const KasPage()),
-                      );
-                    },
-                  ),
-                  MenuCard(
-                    icon: Icons.shopping_cart,
-                    title: 'Pasar',
-                    color: Colors.blue[400]!,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const PasarPage()),
-                      );
-                    },
-                  ),
-                  MenuCard(
-                    icon: Icons.medical_services,
+                    icon: Icons.health_and_safety,
                     title: 'Kesehatan',
                     color: Colors.red[400]!,
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => const KesehatanPage(),
-                        ),
+                        MaterialPageRoute(builder: (context) => const KesehatanPage()),
                       );
                     },
                   ),
                   MenuCard(
-                    icon: Icons.trending_up,
-                    title: 'Penjualan',
+                    icon: Icons.history_edu,
+                    title: 'Transaksi',
                     color: Colors.orange[400]!,
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => const PenjualanPage(),
-                        ),
+                        MaterialPageRoute(builder: (context) => const TransaksiPage()),
                       );
                     },
                   ),
@@ -108,15 +81,13 @@ class MenuPage extends StatelessWidget {
                     },
                   ),
                   MenuCard(
-                    icon: Icons.credit_card,
-                    title: 'Pembayaran',
+                    icon: Icons.videocam,
+                    title: 'CCTV Sapi',
                     color: Colors.purple[400]!,
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => const PembayaranPage(),
-                        ),
+                        MaterialPageRoute(builder: (context) => const CctvPage()),
                       );
                     },
                   ),

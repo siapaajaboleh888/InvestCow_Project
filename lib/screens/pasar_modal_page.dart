@@ -58,6 +58,8 @@ class _PasarModalPageState extends State<PasarModalPage> {
   bool _isPriceUp = true;
   double _percentChange = 0.0;
   String? _marketSentiment;
+  double _currentWeight = 0;
+  double _pricePerKg = 0;
 
   @override
   void initState() {
@@ -120,6 +122,8 @@ class _PasarModalPageState extends State<PasarModalPage> {
                 ? ((_currentPrice - _prevPrice) / _prevPrice) * 100 
                 : 0.0;
             _marketSentiment = data['marketSentiment']?.toString();
+            _currentWeight = _toDouble(data['currentWeight']);
+            _pricePerKg = _toDouble(data['pricePerKg']);
             
             // Add or update latest candle
             if (candleData != null) {
@@ -176,6 +180,8 @@ class _PasarModalPageState extends State<PasarModalPage> {
         if (_products.isNotEmpty) {
           _selectedProduct = _products[0];
           _currentPrice = _toDouble(_selectedProduct!['price']);
+          _currentWeight = _toDouble(_selectedProduct!['current_weight']);
+          _pricePerKg = _toDouble(_selectedProduct!['price_per_kg']);
           _marketSentiment = _selectedProduct!['market_sentiment']?.toString();
           await _fetchHistory(_selectedProduct!['id']);
         }
@@ -380,6 +386,8 @@ class _PasarModalPageState extends State<PasarModalPage> {
                                 ? ((_currentPrice - prevPrice) / prevPrice) * 100 
                                 : 0.0;
                             _isPriceUp = _currentPrice >= prevPrice;
+                            _currentWeight = _toDouble(val['current_weight']);
+                            _pricePerKg = _toDouble(val['price_per_kg']);
                             _marketSentiment = val['market_sentiment']?.toString();
                             _candles = [];
                           });
@@ -433,6 +441,26 @@ class _PasarModalPageState extends State<PasarModalPage> {
                          child: Icon(Icons.show_chart, color: Colors.white),
                       )
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Transparency Info Card
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildTransparencyItem('Berat Sapi', '${_currentWeight.toStringAsFixed(2)} kg', Icons.monitor_weight_outlined),
+                        Container(width: 1, height: 30, color: Colors.white10),
+                        _buildTransparencyItem('Harga/kg', _formatCurrency(_pricePerKg), Icons.payments_outlined),
+                        Container(width: 1, height: 30, color: Colors.white10),
+                        _buildTransparencyItem('Kesehatan', '${_selectedProduct?['health_score'] ?? 100}%', Icons.health_and_safety_outlined),
+                      ],
+                    ),
                   ),
                   if (_selectedProduct?['description'] != null)
                     Padding(
@@ -582,6 +610,17 @@ class _PasarModalPageState extends State<PasarModalPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTransparencyItem(String label, String value, IconData icon) {
+    return Column(
+      children: [
+        Icon(icon, color: Colors.cyan[200], size: 16),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+      ],
     );
   }
 
