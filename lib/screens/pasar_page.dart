@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_client.dart';
+import '../services/auth_service.dart';
 import '../services/portfolios_service.dart';
 import '../services/transactions_service.dart';
 
@@ -17,11 +18,13 @@ class PasarPage extends StatefulWidget {
 
 class _PasarPageState extends State<PasarPage> {
   final _client = ApiClient();
+  final _authService = AuthService();
   final _portfoliosService = PortfoliosService();
   final _transactionsService = TransactionsService();
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _products = [];
+  double _userBalance = 0;
 
   @override
   void initState() {
@@ -35,6 +38,7 @@ class _PasarPageState extends State<PasarPage> {
       _error = null;
     });
     try {
+      final user = await _authService.getMe();
       final uri = _client.uri('/admin/products-public');
       final res = await http.get(uri, headers: _client.jsonHeaders());
       if (res.statusCode != 200) {
@@ -43,6 +47,14 @@ class _PasarPageState extends State<PasarPage> {
       final data = jsonDecode(res.body) as List;
       setState(() {
         _products = data.cast<Map<String, dynamic>>();
+        final balanceRaw = user['balance'];
+        if (balanceRaw is num) {
+          _userBalance = balanceRaw.toDouble();
+        } else if (balanceRaw is String) {
+          _userBalance = double.tryParse(balanceRaw) ?? 0;
+        } else {
+          _userBalance = 0;
+        }
       });
     } catch (e) {
       setState(() {
@@ -58,8 +70,18 @@ class _PasarPageState extends State<PasarPage> {
   }
 
   Future<double> _getKasSaldo() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getDouble('kas_saldo') ?? 0;
+    try {
+      final user = await _authService.getMe();
+      final balanceRaw = user['balance'];
+      if (balanceRaw is num) {
+        return balanceRaw.toDouble();
+      } else if (balanceRaw is String) {
+        return double.tryParse(balanceRaw) ?? 0;
+      }
+      return 0;
+    } catch (e) {
+      return 0;
+    }
   }
 
   Future<void> _catatPengeluaranKas({
@@ -67,6 +89,9 @@ class _PasarPageState extends State<PasarPage> {
     required String productName,
     required double quantity,
   }) async {
+    // This method is no longer directly used for balance updates in the new backend approach.
+    // It's kept here for historical context or if other parts of the app still rely on it for local logging.
+    // The actual balance deduction will happen via the backend transaction.
     final prefs = await SharedPreferences.getInstance();
     final saldoLama = prefs.getDouble('kas_saldo') ?? 0;
     final saldoBaru = saldoLama - total;
@@ -80,7 +105,7 @@ class _PasarPageState extends State<PasarPage> {
     list.insert(0, {
       'jenis': 'Pengeluaran',
       'nominal': total,
-      'metode': 'Pembelian sapi $productName ($quantity ekor)',
+      'metode': 'Pembelian sapi $productName (${quantity.toInt()} ekor)',
       'tanggal': DateTime.now().toIso8601String(),
       'status': 'Berhasil',
     });
@@ -94,10 +119,10 @@ class _PasarPageState extends State<PasarPage> {
     return Scaffold(
       backgroundColor: Colors.grey[300],
       appBar: AppBar(
-        backgroundColor: Colors.blue[400],
+        backgroundColor: Colors.cyan[400],
         foregroundColor: Colors.white,
         title: const Text(
-          'Pasar Modal Sapi',
+          'Pasar Sapi',
           style: TextStyle(fontWeight: FontWeight.w500, fontSize: 20),
         ),
         elevation: 0,
@@ -122,7 +147,7 @@ class _PasarPageState extends State<PasarPage> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
                       gradient: LinearGradient(
-                        colors: [Colors.blue[400]!, Colors.blue[600]!],
+                        colors: [Colors.cyan[400]!, Colors.cyan[700]!],
                       ),
                     ),
                     child: Column(
@@ -130,7 +155,7 @@ class _PasarPageState extends State<PasarPage> {
                         Icon(Icons.shopping_cart, color: Colors.white, size: 60),
                         SizedBox(height: 12),
                         Text(
-                          'Pasar Modal Sapi',
+                          'Pasar Sapi',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -139,7 +164,7 @@ class _PasarPageState extends State<PasarPage> {
                         ),
                         SizedBox(height: 8),
                         Text(
-                          'Pilih paket investasi sapi yang tersedia',
+                          'Beli sapi secara utuh untuk investasi',
                           style: TextStyle(fontSize: 16, color: Colors.white70),
                           textAlign: TextAlign.center,
                         ),
@@ -230,11 +255,11 @@ class _PasarPageState extends State<PasarPage> {
                                   ),
                                 )
                               : CircleAvatar(
-                                  backgroundColor: Colors.blue[100],
+                                  backgroundColor: Colors.cyan[100],
                                   radius: 28,
                                   child: Icon(
                                     Icons.pets,
-                                    color: Colors.blue[700],
+                                    color: Colors.cyan[700],
                                   ),
                                 ),
                           title: Text(
@@ -289,57 +314,73 @@ class _PasarPageState extends State<PasarPage> {
                               final confirmed = await showDialog<bool>(
                                 context: context,
                                 builder: (ctx) {
-                                  return AlertDialog(
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    title: const Text('Konfirmasi Pembelian'),
-                                    content: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Produk: $name'),
-                                        const SizedBox(height: 4),
-                                        Text('Harga per ekor: Rp $priceText'),
-                                        const SizedBox(height: 4),
-                                        Builder(
-                                          builder: (context) {
-                                            final qtyPreview =
-                                                double.tryParse(qtyController.text.trim()) ?? 1;
-                                            final totalPreview = (qtyPreview * price)
-                                                .toStringAsFixed(0)
-                                                .replaceAllMapped(
-                                                  RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                                                  (m) => '${m[1]}.',
-                                                );
-                                            return Text('Perkiraan total: Rp $totalPreview');
-                                          },
+                                  return StatefulBuilder(
+                                    builder: (context, setDialogState) {
+                                      final qtyPreview = double.tryParse(qtyController.text.trim()) ?? 0;
+                                      final totalPreviewNum = price * qtyPreview;
+                                      final totalPreview = totalPreviewNum
+                                          .toStringAsFixed(0)
+                                          .replaceAllMapped(
+                                            RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+                                            (m) => '${m[1]}.',
+                                          );
+
+                                      return AlertDialog(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
                                         ),
-                                        const SizedBox(height: 8),
-                                        TextField(
-                                          controller: qtyController,
-                                          keyboardType: TextInputType.number,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Jumlah ekor',
+                                        title: const Text('Konfirmasi Pembelian'),
+                                        content: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Produk: $name'),
+                                            const SizedBox(height: 4),
+                                            Text('Harga per ekor: Rp $priceText'),
+                                            const SizedBox(height: 4),
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Perkiraan total: Rp $totalPreview',
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.cyan),
+                                                ),
+                                                Text(
+                                                  '($priceText x ${qtyPreview.toStringAsFixed(0)})',
+                                                  style: const TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 8),
+                                            TextField(
+                                              controller: qtyController,
+                                              keyboardType: TextInputType.number,
+                                              decoration: const InputDecoration(
+                                                labelText: 'Jumlah ekor',
+                                              ),
+                                              onChanged: (val) {
+                                                setDialogState(() {});
+                                              },
+                                            ),
+                                            const SizedBox(height: 12),
+                                            const Text(
+                                              'Transaksi akan dicatat ke portofolio sapi utama Anda.',
+                                              style: TextStyle(fontSize: 12, color: Colors.black54),
+                                            ),
+                                          ],
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.of(ctx).pop(false),
+                                            child: const Text('Batal'),
                                           ),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        const Text(
-                                          'Transaksi akan dicatat ke portofolio sapi utama Anda.',
-                                          style: TextStyle(fontSize: 12, color: Colors.black54),
-                                        ),
-                                      ],
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.of(ctx).pop(false),
-                                        child: const Text('Batal'),
-                                      ),
-                                      ElevatedButton(
-                                        onPressed: () => Navigator.of(ctx).pop(true),
-                                        child: const Text('Konfirmasi'),
-                                      ),
-                                    ],
+                                          ElevatedButton(
+                                            onPressed: () => Navigator.of(ctx).pop(true),
+                                            child: const Text('Konfirmasi'),
+                                          ),
+                                        ],
+                                      );
+                                    },
                                   );
                                 },
                               );
@@ -380,7 +421,7 @@ class _PasarPageState extends State<PasarPage> {
                                   quantity: qty,
                                   price: price,
                                   occurredAt: DateTime.now(),
-                                  note: 'Pembelian melalui Pasar Modal Sapi',
+                                  note: 'Pembelian melalui Pasar Sapi (Utuh)',
                                 );
 
                                 await _catatPengeluaranKas(
@@ -395,6 +436,9 @@ class _PasarPageState extends State<PasarPage> {
                                   if (newQuota < 0) newQuota = 0;
                                   _products[index]['quota'] = newQuota;
                                 });
+
+                                // Refresh balance and quotas from server
+                                _loadProducts();
 
                                 if (!mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -414,7 +458,7 @@ class _PasarPageState extends State<PasarPage> {
                               }
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue[400],
+                              backgroundColor: Colors.cyan[400],
                               foregroundColor: Colors.white,
                               minimumSize: const Size(72, 36),
                             ),

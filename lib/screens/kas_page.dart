@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import '../services/auth_service.dart';
 
 class KasPage extends StatefulWidget {
   const KasPage({super.key});
@@ -11,9 +12,11 @@ class KasPage extends StatefulWidget {
 }
 
 class _KasPageState extends State<KasPage> {
+  final _authService = AuthService();
   double saldoKas = 0;
   final List<Map<String, dynamic>> riwayatTransaksi = [];
   String _filter = 'Semua'; // Semua, Top Up, Pengeluaran
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -22,23 +25,39 @@ class _KasPageState extends State<KasPage> {
   }
 
   Future<void> _loadKasData() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      saldoKas = prefs.getDouble('kas_saldo') ?? 0;
-      final raw = prefs.getString('kas_riwayat');
-      if (raw != null && raw.isNotEmpty) {
-        final list = (jsonDecode(raw) as List<dynamic>).cast<Map<String, dynamic>>();
-        riwayatTransaksi
-          ..clear()
-          ..addAll(list.map((e) => {
-                'jenis': e['jenis'],
-                'nominal': (e['nominal'] as num).toDouble(),
-                'metode': e['metode'],
-                'tanggal': DateTime.parse(e['tanggal']),
-                'status': e['status'],
-              }));
-      }
-    });
+    setState(() => _isLoading = true);
+    try {
+      final user = await _authService.getMe();
+      final prefs = await SharedPreferences.getInstance();
+      
+      setState(() {
+        final balanceRaw = user['balance'];
+        if (balanceRaw is num) {
+          saldoKas = balanceRaw.toDouble();
+        } else if (balanceRaw is String) {
+          saldoKas = double.tryParse(balanceRaw) ?? 0;
+        } else {
+          saldoKas = 0;
+        }
+        final raw = prefs.getString('kas_riwayat');
+        if (raw != null && raw.isNotEmpty) {
+          final list = (jsonDecode(raw) as List<dynamic>).cast<Map<String, dynamic>>();
+          riwayatTransaksi
+            ..clear()
+            ..addAll(list.map((e) => {
+                  'jenis': e['jenis'],
+                  'nominal': (e['nominal'] as num).toDouble(),
+                  'metode': e['metode'],
+                  'tanggal': DateTime.parse(e['tanggal']),
+                  'status': e['status'],
+                }));
+        }
+      });
+    } catch (e) {
+      print('Error loading kas data: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _saveKasData() async {
@@ -56,18 +75,35 @@ class _KasPageState extends State<KasPage> {
     await prefs.setString('kas_riwayat', encoded);
   }
 
-  void _tambahSaldo(double nominal, String metode) {
-    setState(() {
-      saldoKas += nominal;
-      riwayatTransaksi.insert(0, {
-        'jenis': 'Top Up',
-        'nominal': nominal,
-        'metode': metode,
-        'tanggal': DateTime.now(),
-        'status': 'Berhasil',
+  Future<void> _tambahSaldo(double nominal, String metode) async {
+    try {
+      await _authService.topUp(nominal);
+      final prefs = await SharedPreferences.getInstance();
+      
+      setState(() {
+        saldoKas += nominal;
+        riwayatTransaksi.insert(0, {
+          'jenis': 'Top Up',
+          'nominal': nominal,
+          'metode': metode,
+          'tanggal': DateTime.now(),
+          'status': 'Berhasil',
+        });
       });
-    });
-    _saveKasData();
+      
+      final encoded = jsonEncode(riwayatTransaksi
+          .map((e) => {
+                'jenis': e['jenis'],
+                'nominal': e['nominal'],
+                'metode': e['metode'],
+                'tanggal': (e['tanggal'] as DateTime).toIso8601String(),
+                'status': e['status'],
+              })
+          .toList());
+      await prefs.setString('kas_riwayat', encoded);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Top up gagal: $e'), backgroundColor: Colors.red));
+    }
   }
 
   void _showTopUpDialog() {

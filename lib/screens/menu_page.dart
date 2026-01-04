@@ -4,6 +4,7 @@ import 'kesehatan_page.dart';
 import 'kandang_page.dart';
 import 'cctv_page.dart';
 import 'transaksi_page.dart';
+import 'pasar_page.dart';
 import '../main.dart';
 
 class MenuPage extends StatelessWidget {
@@ -88,6 +89,28 @@ class MenuPage extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => const CctvPage()),
+                      );
+                    },
+                  ),
+                  MenuCard(
+                    icon: Icons.storefront,
+                    title: 'Pasar Sapi',
+                    color: Colors.teal[400]!,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const PasarPage()),
+                      );
+                    },
+                  ),
+                  MenuCard(
+                    icon: Icons.account_balance_wallet,
+                    title: 'Kas Sapi',
+                    color: Colors.cyan[600]!,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const KasPage()),
                       );
                     },
                   ),
