@@ -11,10 +11,9 @@ router.get('/all', authMiddleware, async (req, res) => {
     const { limit = 50, offset = 0 } = req.query;
 
     const [rows] = await pool.query(
-      `SELECT t.id, t.portfolio_id, t.type, t.symbol, t.quantity, t.price, t.occurred_at, t.note, t.created_at
+      `SELECT t.id, t.portfolio_id, t.type, t.symbol, t.quantity, t.price, t.occurred_at, t.note, t.created_at, t.amount
        FROM transactions t
-       JOIN portfolios p ON t.portfolio_id = p.id
-       WHERE p.user_id = :uid
+       WHERE t.user_id = :uid
        ORDER BY t.occurred_at DESC, t.id DESC
        LIMIT :limit OFFSET :offset`,
       { uid: userId, limit: Number(limit), offset: Number(offset) }
@@ -134,9 +133,9 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 
     const [result] = await connection.query(
-      `INSERT INTO transactions (portfolio_id, type, symbol, quantity, price, occurred_at, note)
-       VALUES (:portfolio_id, :type, :symbol, :quantity, :price, :occurred_at, :note)`,
-      { portfolio_id, type, symbol, quantity, price, occurred_at, note: note || null }
+      `INSERT INTO transactions (user_id, portfolio_id, type, symbol, quantity, price, occurred_at, note)
+       VALUES (:user_id, :portfolio_id, :type, :symbol, :quantity, :price, :occurred_at, :note)`,
+      { user_id: userId, portfolio_id, type, symbol, quantity, price, occurred_at, note: note || null }
     );
 
     await connection.commit();

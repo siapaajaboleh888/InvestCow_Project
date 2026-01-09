@@ -69,11 +69,30 @@ router.post('/topup', authMiddleware, async (req, res) => {
     const { amount } = req.body || {};
     if (!amount || amount <= 0) return res.status(400).json({ message: 'Invalid amount' });
 
+    // Update balance
     await pool.query('UPDATE users SET balance = balance + :amount WHERE id = :idx', { amount, idx: userId });
+
+    // Record transaction
+    // Find a portfolio for the user (transaction needs portfolio_id in current join logic)
+    const [ports] = await pool.query('SELECT id FROM portfolios WHERE user_id = :uid LIMIT 1', { uid: userId });
+    let portfolioId = ports.length ? ports[0].id : null;
+
+    if (!portfolioId) {
+      // Create default portfolio if none exists
+      const [newPort] = await pool.query('INSERT INTO portfolios (user_id, name) VALUES (:uid, "Utama")', { uid: userId });
+      portfolioId = newPort.insertId;
+    }
+
+    await pool.query(
+      `INSERT INTO transactions (user_id, portfolio_id, product_id, type, amount, quantity, price_at_trx, occurred_at, note) 
+       VALUES (:uid, :pid, NULL, 'TOPUP', :amount, 0, 0, NOW(), 'Top Up Saldo')`,
+      { uid: userId, pid: portfolioId, amount }
+    );
 
     const [rows] = await pool.query('SELECT balance FROM users WHERE id = :id', { id: userId });
     return res.json({ message: 'Topup successful', balance: rows[0].balance });
   } catch (e) {
+    console.error('Topup error:', e);
     return res.status(500).json({ message: 'Server error' });
   }
 });

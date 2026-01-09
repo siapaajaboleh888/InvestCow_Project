@@ -85,9 +85,23 @@ class _RiwayatPageState extends State<RiwayatPage> {
                       itemCount: _transactions.length,
                       itemBuilder: (context, index) {
                         final trx = _transactions[index];
-                        final isBuy = trx['type'] == 'buy';
-                        final amount = _toDouble(trx['quantity']) * _toDouble(trx['price']);
+                        final type = trx['type']?.toString().toLowerCase();
+                        final isBuy = type == 'buy';
+                        final isTopUp = type == 'topup' || type == 'deposit';
                         
+                        double amount = _toDouble(trx['amount']);
+                        if (amount <= 0) {
+                          amount = _toDouble(trx['quantity']) * _toDouble(trx['price']);
+                        }
+                        
+                        String title = '${isBuy ? 'Investasi' : 'Penjualan'} ${trx['symbol'] ?? ''}';
+                        if (isTopUp) title = 'Top Up Saldo';
+
+                        IconData icon = isBuy ? Icons.add_chart : Icons.show_chart;
+                        if (isTopUp) icon = Icons.account_balance_wallet;
+
+                        Color iconColor = isBuy ? Colors.greenAccent : (isTopUp ? Colors.cyanAccent : Colors.redAccent);
+
                         return Container(
                           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           padding: const EdgeInsets.all(16),
@@ -101,13 +115,10 @@ class _RiwayatPageState extends State<RiwayatPage> {
                               Container(
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: isBuy ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                                  color: iconColor.withOpacity(0.1),
                                   shape: BoxShape.circle,
                                 ),
-                                child: Icon(
-                                  isBuy ? Icons.add_chart : Icons.show_chart,
-                                  color: isBuy ? Colors.greenAccent : Colors.redAccent,
-                                ),
+                                child: Icon(icon, color: iconColor),
                               ),
                               const SizedBox(width: 16),
                               Expanded(
@@ -115,7 +126,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '${isBuy ? 'Investasi' : 'Penjualan'} ${trx['symbol']}',
+                                      title,
                                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                                     ),
                                     const SizedBox(height: 4),
@@ -130,17 +141,18 @@ class _RiwayatPageState extends State<RiwayatPage> {
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   Text(
-                                    '${isBuy ? '-' : '+'} ${_formatCurrency(amount)}',
+                                    '${(isBuy) ? '-' : '+'} ${_formatCurrency(amount)}',
                                     style: TextStyle(
-                                      color: isBuy ? Colors.redAccent : Colors.greenAccent,
+                                      color: (isBuy) ? Colors.redAccent : Colors.greenAccent,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 15,
                                     ),
                                   ),
-                                  Text(
-                                    '${_toDouble(trx['quantity']).toStringAsFixed(2)} Ekor',
-                                    style: const TextStyle(color: Colors.grey, fontSize: 11),
-                                  ),
+                                  if (!isTopUp)
+                                    Text(
+                                      '${_toDouble(trx['quantity']).toStringAsFixed(2)} Ekor',
+                                      style: const TextStyle(color: Colors.grey, fontSize: 11),
+                                    ),
                                 ],
                               ),
                             ],
