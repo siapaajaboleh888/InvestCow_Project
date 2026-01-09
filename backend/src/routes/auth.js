@@ -64,36 +64,48 @@ router.get('/me', authMiddleware, async (req, res) => {
 
 // Top-up balance
 router.post('/topup', authMiddleware, async (req, res) => {
+  const connection = await pool.getConnection();
   try {
     const userId = req.user.id;
     const { amount } = req.body || {};
     if (!amount || amount <= 0) return res.status(400).json({ message: 'Invalid amount' });
 
+    await connection.beginTransaction();
+
     // Update balance
-    await pool.query('UPDATE users SET balance = balance + :amount WHERE id = :idx', { amount, idx: userId });
+    await connection.query('UPDATE users SET balance = balance + :amount WHERE id = :idx', { amount, idx: userId });
 
     // Record transaction
     // Find a portfolio for the user (transaction needs portfolio_id in current join logic)
-    const [ports] = await pool.query('SELECT id FROM portfolios WHERE user_id = :uid LIMIT 1', { uid: userId });
+    const [ports] = await connection.query('SELECT id FROM portfolios WHERE user_id = :uid LIMIT 1', { uid: userId });
     let portfolioId = ports.length ? ports[0].id : null;
 
     if (!portfolioId) {
       // Create default portfolio if none exists
-      const [newPort] = await pool.query('INSERT INTO portfolios (user_id, name) VALUES (:uid, "Utama")', { uid: userId });
+      const [newPort] = await connection.query('INSERT INTO portfolios (user_id, name) VALUES (:uid, "Utama")', { uid: userId });
       portfolioId = newPort.insertId;
     }
 
-    await pool.query(
-      `INSERT INTO transactions (user_id, portfolio_id, product_id, type, amount, quantity, price, occurred_at, note) 
-       VALUES (:uid, :pid, NULL, 'TOPUP', :amount, 0, 0, NOW(), 'Top Up Saldo')`,
-      { uid: userId, pid: portfolioId, amount }
-    );
+    // Explicitly provide all required fields including symbol 'CASH'
+    const query = `
+      INSERT INTO transactions 
+      (user_id, portfolio_id, product_id, type, symbol, amount, quantity, price, occurred_at, note) 
+      VALUES 
+      (:uid, :pid, NULL, 'TOPUP', 'CASH', :amount, 0, 0, NOW(), 'Top Up Saldo')
+    `;
 
-    const [rows] = await pool.query('SELECT balance FROM users WHERE id = :id', { id: userId });
+    await connection.query(query, { uid: userId, pid: portfolioId, amount });
+
+    const [rows] = await connection.query('SELECT balance FROM users WHERE id = :id', { id: userId });
+
+    await connection.commit();
     return res.json({ message: 'Topup successful', balance: rows[0].balance });
   } catch (e) {
+    if (connection) await connection.rollback();
     console.error('Topup error:', e);
     return res.status(500).json({ message: 'Server error' });
+  } finally {
+    if (connection) connection.release();
   }
 });
 
