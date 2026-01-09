@@ -51,9 +51,14 @@ class _KasPageState extends State<KasPage> {
             String displayType = 'Pengeluaran';
             if (type == 'topup' || type == 'deposit') displayType = 'Top Up';
             
+            double nominal = _toDouble(t['amount']);
+            if (nominal <= 0) {
+              nominal = _toDouble(t['quantity']) * _toDouble(t['price']);
+            }
+            
             return {
               'jenis': displayType,
-              'nominal': _toDouble(t['amount'] ?? (_toDouble(t['quantity']) * _toDouble(t['price']))),
+              'nominal': nominal,
               'metode': t['note'] ?? (type == 'topup' ? 'TopUp' : 'Investasi'),
               'tanggal': DateTime.tryParse(t['occurred_at']?.toString() ?? '') ?? DateTime.now(),
               'status': 'Berhasil',
