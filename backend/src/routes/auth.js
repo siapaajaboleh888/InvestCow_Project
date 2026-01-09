@@ -84,7 +84,7 @@ router.post('/topup', authMiddleware, async (req, res) => {
     }
 
     await pool.query(
-      `INSERT INTO transactions (user_id, portfolio_id, product_id, type, amount, quantity, price_at_trx, occurred_at, note) 
+      `INSERT INTO transactions (user_id, portfolio_id, product_id, type, amount, quantity, price, occurred_at, note) 
        VALUES (:uid, :pid, NULL, 'TOPUP', :amount, 0, 0, NOW(), 'Top Up Saldo')`,
       { uid: userId, pid: portfolioId, amount }
     );
