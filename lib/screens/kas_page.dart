@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../services/auth_service.dart';
+import '../services/transactions_service.dart';
+import 'package:intl/intl.dart';
 
 class KasPage extends StatefulWidget {
   const KasPage({super.key});
@@ -13,8 +15,9 @@ class KasPage extends StatefulWidget {
 
 class _KasPageState extends State<KasPage> {
   final _authService = AuthService();
+  final _trxService = TransactionsService();
   double saldoKas = 0;
-  final List<Map<String, dynamic>> riwayatTransaksi = [];
+  List<Map<String, dynamic>> riwayatTransaksi = [];
   String _filter = 'Semua'; // Semua, Top Up, Pengeluaran
   bool _isLoading = true;
 
@@ -24,39 +27,45 @@ class _KasPageState extends State<KasPage> {
     _loadKasData();
   }
 
+  double _toDouble(dynamic val) {
+    if (val == null) return 0.0;
+    if (val is num) return val.toDouble();
+    if (val is String) return double.tryParse(val) ?? 0.0;
+    return 0.0;
+  }
+
   Future<void> _loadKasData() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final user = await _authService.getMe();
-      final prefs = await SharedPreferences.getInstance();
+      final transactions = await _trxService.listAll();
       
-      setState(() {
-        final balanceRaw = user['balance'];
-        if (balanceRaw is num) {
-          saldoKas = balanceRaw.toDouble();
-        } else if (balanceRaw is String) {
-          saldoKas = double.tryParse(balanceRaw) ?? 0;
-        } else {
-          saldoKas = 0;
-        }
-        final raw = prefs.getString('kas_riwayat');
-        if (raw != null && raw.isNotEmpty) {
-          final list = (jsonDecode(raw) as List<dynamic>).cast<Map<String, dynamic>>();
-          riwayatTransaksi
-            ..clear()
-            ..addAll(list.map((e) => {
-                  'jenis': e['jenis'],
-                  'nominal': (e['nominal'] as num).toDouble(),
-                  'metode': e['metode'],
-                  'tanggal': DateTime.parse(e['tanggal']),
-                  'status': e['status'],
-                }));
-        }
-      });
+      if (mounted) {
+        setState(() {
+          saldoKas = _toDouble(user['balance']);
+          
+          // Map backend transactions to local format
+          riwayatTransaksi = transactions.map((t) {
+            final type = t['type']?.toString().toLowerCase();
+            String displayType = 'Pengeluaran';
+            if (type == 'topup' || type == 'deposit') displayType = 'Top Up';
+            
+            return {
+              'jenis': displayType,
+              'nominal': _toDouble(t['amount'] ?? (_toDouble(t['quantity']) * _toDouble(t['price']))),
+              'metode': t['note'] ?? (type == 'topup' ? 'TopUp' : 'Investasi'),
+              'tanggal': DateTime.tryParse(t['occurred_at']?.toString() ?? '') ?? DateTime.now(),
+              'status': 'Berhasil',
+              'original_type': type,
+            };
+          }).toList();
+        });
+      }
     } catch (e) {
       print('Error loading kas data: $e');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -78,29 +87,7 @@ class _KasPageState extends State<KasPage> {
   Future<void> _tambahSaldo(double nominal, String metode) async {
     try {
       await _authService.topUp(nominal);
-      final prefs = await SharedPreferences.getInstance();
-      
-      setState(() {
-        saldoKas += nominal;
-        riwayatTransaksi.insert(0, {
-          'jenis': 'Top Up',
-          'nominal': nominal,
-          'metode': metode,
-          'tanggal': DateTime.now(),
-          'status': 'Berhasil',
-        });
-      });
-      
-      final encoded = jsonEncode(riwayatTransaksi
-          .map((e) => {
-                'jenis': e['jenis'],
-                'nominal': e['nominal'],
-                'metode': e['metode'],
-                'tanggal': (e['tanggal'] as DateTime).toIso8601String(),
-                'status': e['status'],
-              })
-          .toList());
-      await prefs.setString('kas_riwayat', encoded);
+      await _loadKasData(); // Reload everything from backend
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Top up gagal: $e'), backgroundColor: Colors.red));
     }
