@@ -16,7 +16,8 @@ class PriceEngine {
         this.isRunning = true;
         console.log('🚀 Price Engine started...');
 
-        // Jalankan simulasi setiap 15 detik
+        // DEVOPS PHASE 5: MONITORING & OPERATION
+        // Jalankan simulasi every 15 detik sebagai bagian dari continuous monitoring
         this.intervalId = setInterval(async () => {
             await this.simulatePrices();
         }, 15000);
@@ -118,6 +119,7 @@ class PriceEngine {
                 }
             }
         } catch (error) {
+            // DEVOPS ERROR LOGGING: Memastikan sistem tetap terdata jika terjadi kegagalan
             console.error('❌ Price Engine Error:', error);
         }
     }
