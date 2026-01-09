@@ -313,12 +313,14 @@ class _PasarModalPageState extends State<PasarModalPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.history),
+            tooltip: 'Riwayat Transaksi',
             onPressed: () {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const RiwayatPage()));
             },
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh Data',
             onPressed: () {
               _fetchInitialData();
               _fetchUserData();

@@ -69,6 +69,11 @@ class _RiwayatPageState extends State<RiwayatPage> {
         backgroundColor: const Color(0xFF1E222D),
         foregroundColor: Colors.white,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Kembali',
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.cyan))
