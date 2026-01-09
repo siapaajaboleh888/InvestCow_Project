@@ -40,6 +40,13 @@ class _RiwayatPageState extends State<RiwayatPage> {
     }
   }
 
+  double _toDouble(dynamic val) {
+    if (val == null) return 0.0;
+    if (val is num) return val.toDouble();
+    if (val is String) return double.tryParse(val) ?? 0.0;
+    return 0.0;
+  }
+
   String _formatCurrency(double val) {
     return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp', decimalDigits: 0).format(val);
   }
@@ -74,7 +81,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
                       itemBuilder: (context, index) {
                         final trx = _transactions[index];
                         final isBuy = trx['type'] == 'buy';
-                        final amount = (trx['quantity'] as num).toDouble() * (trx['price'] as num).toDouble();
+                        final amount = _toDouble(trx['quantity']) * _toDouble(trx['price']);
                         
                         return Container(
                           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -126,7 +133,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
                                     ),
                                   ),
                                   Text(
-                                    '${(trx['quantity'] as num).toDouble().toStringAsFixed(2)} Ekor',
+                                    '${_toDouble(trx['quantity']).toStringAsFixed(2)} Ekor',
                                     style: const TextStyle(color: Colors.grey, fontSize: 11),
                                   ),
                                 ],
