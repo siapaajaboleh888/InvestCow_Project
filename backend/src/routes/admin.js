@@ -72,12 +72,12 @@ router.get('/products', authMiddleware, adminOnly, async (req, res) => {
 // Create product
 router.post('/products', authMiddleware, adminOnly, async (req, res) => {
   try {
-    const { name, ticker_code, description, price, target_price, quota, image_url, market_sentiment } = req.body || {};
+    const { name, ticker_code, description, price, target_price, quota, image_url, market_sentiment, investor_share_ratio } = req.body || {};
     if (!name || price == null) {
       return res.status(400).json({ message: 'Missing name or price' });
     }
     const [result] = await pool.query(
-      'INSERT INTO products (name, ticker_code, description, price, prev_price, target_price, quota, image_url, market_sentiment) VALUES (:name, :ticker_code, :description, :price, :price, :target_price, :quota, :image_url, :market_sentiment)',
+      'INSERT INTO products (name, ticker_code, description, price, prev_price, target_price, quota, image_url, market_sentiment, investor_share_ratio) VALUES (:name, :ticker_code, :description, :price, :price, :target_price, :quota, :image_url, :market_sentiment, :investor_share_ratio)',
       {
         name,
         ticker_code: ticker_code || 'COW',
@@ -87,6 +87,7 @@ router.post('/products', authMiddleware, adminOnly, async (req, res) => {
         quota: quota ?? 0,
         image_url: image_url || null,
         market_sentiment: market_sentiment || null,
+        investor_share_ratio: investor_share_ratio || 0.7000,
       },
     );
     const id = result.insertId;
@@ -105,14 +106,14 @@ router.post('/products', authMiddleware, adminOnly, async (req, res) => {
 router.put('/products/:id', authMiddleware, adminOnly, async (req, res) => {
   try {
     const id = req.params.id;
-    const { name, ticker_code, description, price, target_price, quota, image_url, market_sentiment } = req.body || {};
+    const { name, ticker_code, description, price, target_price, quota, image_url, market_sentiment, investor_share_ratio } = req.body || {};
 
     // Get old price to move it to prev_price
     const [oldRows] = await pool.query('SELECT price FROM products WHERE id = :id', { id });
     const oldPrice = oldRows.length > 0 ? oldRows[0].price : price;
 
     const [result] = await pool.query(
-      'UPDATE products SET name = :name, ticker_code = :ticker_code, description = :description, price = :price, prev_price = :prev_price, target_price = :target_price, quota = :quota, image_url = :image_url, market_sentiment = :market_sentiment WHERE id = :id',
+      'UPDATE products SET name = :name, ticker_code = :ticker_code, description = :description, price = :price, prev_price = :prev_price, target_price = :target_price, quota = :quota, image_url = :image_url, market_sentiment = :market_sentiment, investor_share_ratio = :investor_share_ratio WHERE id = :id',
       {
         id,
         name,
@@ -124,6 +125,7 @@ router.put('/products/:id', authMiddleware, adminOnly, async (req, res) => {
         quota,
         image_url: image_url || null,
         market_sentiment: market_sentiment || null,
+        investor_share_ratio: investor_share_ratio !== undefined ? investor_share_ratio : 0.7000,
       },
     );
 

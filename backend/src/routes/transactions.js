@@ -106,6 +106,10 @@ router.post('/', authMiddleware, async (req, res) => {
     const [userRows] = await connection.query('SELECT balance FROM users WHERE id = :uid FOR UPDATE', { uid: userId });
     const userBalance = Number(userRows[0].balance);
 
+    let finalGain = totalCost;
+    let profitSharingAmount = 0;
+    let investorNetProfit = 0;
+
     if (type === 'buy') {
       if (userBalance < totalCost) {
         await connection.rollback();
@@ -128,18 +132,63 @@ router.post('/', authMiddleware, async (req, res) => {
         return res.status(400).json({ message: 'Jumlah unit tidak mencukupi untuk dijual.' });
       }
 
-      // Add balance
-      await connection.query('UPDATE users SET balance = balance + :gain WHERE id = :uid', { gain: totalCost, uid: userId });
+      // --- PROFIT SHARING LOGIC (REAL-WORLD PRACTICE) ---
+      // 1. Hitung Modal Rata-rata (Weighted Average Cost)
+      const [buyStats] = await connection.query(`
+        SELECT 
+          SUM(quantity * price) as total_cost,
+          SUM(quantity) as total_qty
+        FROM transactions 
+        WHERE user_id = :uid AND symbol = :symbol AND type = 'buy'
+      `, { uid: userId, symbol });
+
+      const avgBuyPrice = buyStats[0].total_qty > 0 ? (buyStats[0].total_cost / buyStats[0].total_qty) : price;
+
+      // 2. Ambil ratio bagi hasil dari produk
+      const [productRows] = await connection.query(`SELECT investor_share_ratio FROM products WHERE ticker_code = :symbol`, { symbol });
+      const investorRatio = productRows.length > 0 ? parseFloat(productRows[0].investor_share_ratio) : 0.7000; // Default 70% investor
+
+      // 3. Hitung Profit
+      const totalProfit = Number(quantity) * (Number(price) - avgBuyPrice);
+
+      if (totalProfit > 0) {
+        // Skema: Profit dibagikan (misal 70% Investor, 30% Peternak)
+        profitSharingAmount = totalProfit * (1 - investorRatio);
+        investorNetProfit = totalProfit - profitSharingAmount;
+        finalGain = (Number(quantity) * Number(price)) - profitSharingAmount;
+      } else {
+        // Jika rugi, investor menanggung seluruh kerugian (praktik umum)
+        investorNetProfit = totalProfit;
+        finalGain = Number(quantity) * Number(price);
+      }
+
+      // Add balance (Net Gain after profit sharing)
+      await connection.query('UPDATE users SET balance = balance + :gain WHERE id = :uid', { gain: finalGain, uid: userId });
     }
 
     const [result] = await connection.query(
-      `INSERT INTO transactions (user_id, portfolio_id, type, symbol, quantity, price, occurred_at, note)
-       VALUES (:user_id, :portfolio_id, :type, :symbol, :quantity, :price, :occurred_at, :note)`,
-      { user_id: userId, portfolio_id, type, symbol, quantity, price, occurred_at, note: note || null }
+      `INSERT INTO transactions (user_id, portfolio_id, type, symbol, quantity, price, occurred_at, note, profit_sharing_amount, investor_net_profit)
+       VALUES (:user_id, :portfolio_id, :type, :symbol, :quantity, :price, :occurred_at, :note, :psa, :inp)`,
+      {
+        user_id: userId,
+        portfolio_id,
+        type,
+        symbol,
+        quantity,
+        price,
+        occurred_at,
+        note: note || (type === 'sell' && profitSharingAmount > 0 ? `Bagi hasil dipotong Rp${profitSharingAmount.toLocaleString('id-ID')}` : null),
+        psa: profitSharingAmount,
+        inp: investorNetProfit
+      }
     );
 
     await connection.commit();
-    return res.status(201).json({ id: result.insertId });
+    return res.status(201).json({
+      id: result.insertId,
+      profit_shared: profitSharingAmount,
+      net_gain: finalGain
+    });
   } catch (e) {
     console.error(e);
     await connection.rollback();
