@@ -49,3 +49,7 @@ app.*.map.json
 TA_EXPERT_GUIDE.md
 backend/.env
 backend/uploads/
+android/build/
+android/.gradle/
+android/app/build/
+.vscode/

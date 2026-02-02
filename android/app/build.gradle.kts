@@ -15,7 +15,7 @@ plugins {
 
 android {
     namespace = "com.investcow.app"
-    compileSdk = 36  // 👈 DIUBAH: Set ke 36 untuk plugin compatibility
+    compileSdk = 35  // 👈 DIUBAH: Set ke 35 untuk stabilitas plugin
     ndkVersion = "27.0.12077973"  // 👈 DIUBAH: Set ke 27 untuk plugin compatibility
 
     compileOptions {
@@ -30,7 +30,7 @@ android {
     defaultConfig {
         applicationId = "com.investcow.app"
         minSdk = flutter.minSdkVersion  // 👈 DIUBAH: Set eksplisit ke 21
-        targetSdk = 36  // 👈 DIUBAH: Set ke 36 untuk plugin compatibility
+        targetSdk = 35  // 👈 DIUBAH: Set ke 35 untuk stabilitas plugin
         versionCode = 1
         versionName = "1.0.0"
     }
