@@ -37,7 +37,8 @@ class _CctvLivePlayerState extends State<CctvLivePlayer> {
         showControls: true,
         mute: true,
         showFullscreenButton: true,
-        origin: 'http://localhost',
+        // Biarkan kosong agar library menyesuaikan dengan domain saat ini secara otomatis
+        // origin: 'http://localhost',
       ),
 
     );

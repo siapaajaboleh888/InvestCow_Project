@@ -9,9 +9,9 @@ class ApiClient {
       : baseUrl = overrideBaseUrl ?? _defaultBaseUrl();
 
   static String _defaultBaseUrl() {
-    if (kIsWeb) return 'http://127.0.0.1:8081';
+    if (kIsWeb) return 'http://localhost:8081';
     // Gunakan IP Laptop agar HP fisik bisa mengakses backend
-    return 'http://192.168.1.6:8081';
+    return 'http://192.168.1.111:8081';
   }
 
   String get socketUrl => baseUrl;

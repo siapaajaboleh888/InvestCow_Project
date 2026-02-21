@@ -271,8 +271,8 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
           showControls: true,
           showFullscreenButton: true,
           mute: false,
-          origin: 'http://localhost', // Helps with "Video unavailable" on dev
-          strictRelatedVideos: true,
+          // origin: 'http://localhost',
+          strictRelatedVideos: false,
         ),
 
       );
