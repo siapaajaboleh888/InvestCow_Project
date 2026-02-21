@@ -1,0 +1,13 @@
+{
+    "name": "cctv-simulator",
+    "version": "1.0.0",
+    "description": "CCTV Live Streaming Simulator for InvestCow",
+    "main": "server.js",
+    "dependencies": {
+        "@ffmpeg-installer/ffmpeg": "^1.1.0",
+        "node-media-server": "^2.4.8"
+    },
+    "scripts": {
+        "start": "node server.js"
+    }
+}

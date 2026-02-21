@@ -31,7 +31,7 @@ const upload = multer({ storage });
 router.get('/products-public', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, name, ticker_code, description, price, prev_price, target_price, quota, image_url, market_sentiment FROM products ORDER BY id DESC',
+      'SELECT id, name, ticker_code, description, price, prev_price, target_price, quota, image_url, cctv_url, market_sentiment FROM products ORDER BY id DESC',
     );
     return res.json(rows);
   } catch (e) {
@@ -60,7 +60,7 @@ router.post(
 router.get('/products', authMiddleware, adminOnly, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, name, ticker_code, description, price, prev_price, target_price, quota, image_url, market_sentiment FROM products ORDER BY id DESC',
+      'SELECT id, name, ticker_code, description, price, prev_price, target_price, quota, image_url, cctv_url, market_sentiment FROM products ORDER BY id DESC',
     );
     return res.json(rows);
   } catch (e) {
@@ -77,7 +77,7 @@ router.post('/products', authMiddleware, adminOnly, async (req, res) => {
       return res.status(400).json({ message: 'Missing name or price' });
     }
     const [result] = await pool.query(
-      'INSERT INTO products (name, ticker_code, description, price, prev_price, target_price, quota, image_url, market_sentiment, investor_share_ratio) VALUES (:name, :ticker_code, :description, :price, :price, :target_price, :quota, :image_url, :market_sentiment, :investor_share_ratio)',
+      'INSERT INTO products (name, ticker_code, description, price, prev_price, target_price, quota, image_url, cctv_url, market_sentiment, investor_share_ratio) VALUES (:name, :ticker_code, :description, :price, :price, :target_price, :quota, :image_url, :cctv_url, :market_sentiment, :investor_share_ratio)',
       {
         name,
         ticker_code: ticker_code || 'COW',
@@ -86,13 +86,14 @@ router.post('/products', authMiddleware, adminOnly, async (req, res) => {
         target_price: target_price || null,
         quota: quota ?? 0,
         image_url: image_url || null,
+        cctv_url: cctv_url || null,
         market_sentiment: market_sentiment || null,
         investor_share_ratio: investor_share_ratio || 0.7000,
       },
     );
     const id = result.insertId;
     const [rows] = await pool.query(
-      'SELECT id, name, ticker_code, description, price, prev_price, quota, image_url FROM products WHERE id = :id',
+      'SELECT id, name, ticker_code, description, price, prev_price, quota, image_url, cctv_url FROM products WHERE id = :id',
       { id },
     );
     return res.status(201).json(rows[0]);
@@ -113,7 +114,7 @@ router.put('/products/:id', authMiddleware, adminOnly, async (req, res) => {
     const oldPrice = oldRows.length > 0 ? oldRows[0].price : price;
 
     const [result] = await pool.query(
-      'UPDATE products SET name = :name, ticker_code = :ticker_code, description = :description, price = :price, prev_price = :prev_price, target_price = :target_price, quota = :quota, image_url = :image_url, market_sentiment = :market_sentiment, investor_share_ratio = :investor_share_ratio WHERE id = :id',
+      'UPDATE products SET name = :name, ticker_code = :ticker_code, description = :description, price = :price, prev_price = :prev_price, target_price = :target_price, quota = :quota, image_url = :image_url, cctv_url = :cctv_url, market_sentiment = :market_sentiment, investor_share_ratio = :investor_share_ratio WHERE id = :id',
       {
         id,
         name,
@@ -124,6 +125,7 @@ router.put('/products/:id', authMiddleware, adminOnly, async (req, res) => {
         target_price: target_price || null,
         quota,
         image_url: image_url || null,
+        cctv_url: cctv_url || null,
         market_sentiment: market_sentiment || null,
         investor_share_ratio: investor_share_ratio !== undefined ? investor_share_ratio : 0.7000,
       },
@@ -148,7 +150,7 @@ router.put('/products/:id', authMiddleware, adminOnly, async (req, res) => {
     );
 
     const [rows] = await pool.query(
-      'SELECT id, name, description, price, quota, image_url FROM products WHERE id = :id',
+      'SELECT id, name, description, price, quota, image_url, cctv_url FROM products WHERE id = :id',
       { id },
     );
 

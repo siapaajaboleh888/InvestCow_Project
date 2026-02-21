@@ -15,22 +15,22 @@ plugins {
 
 android {
     namespace = "com.investcow.app"
-    compileSdk = 35  // 👈 DIUBAH: Set ke 35 untuk stabilitas plugin
-    ndkVersion = "27.0.12077973"  // 👈 DIUBAH: Set ke 27 untuk plugin compatibility
+    compileSdk = 36  // Ditingkatkan ke 36 sesuai kebutuhan plugin
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17  // 👈 DIUBAH: Ke 17 untuk SDK 36
-        targetCompatibility = JavaVersion.VERSION_17  // 👈 DIUBAH: Ke 17 untuk SDK 36
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "17"  // 👈 DIUBAH: Ke 17 untuk SDK 36
+        jvmTarget = "17"
     }
 
     defaultConfig {
         applicationId = "com.investcow.app"
-        minSdk = flutter.minSdkVersion  // 👈 DIUBAH: Set eksplisit ke 21
-        targetSdk = 35  // 👈 DIUBAH: Set ke 35 untuk stabilitas plugin
+        minSdk = flutter.minSdkVersion
+        targetSdk = 36  // Ditingkatkan ke 36 sesuai kebutuhan plugin
         versionCode = 1
         versionName = "1.0.0"
     }

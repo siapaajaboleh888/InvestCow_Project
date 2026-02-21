@@ -10,8 +10,8 @@ class ApiClient {
 
   static String _defaultBaseUrl() {
     if (kIsWeb) return 'http://127.0.0.1:8081';
-    // Gunakan IP Laptop agar HP fisik (V2030) bisa mengakses backend
-    return 'http://192.168.1.8:8081';
+    // Gunakan IP Laptop agar HP fisik bisa mengakses backend
+    return 'http://192.168.1.6:8081';
   }
 
   String get socketUrl => baseUrl;

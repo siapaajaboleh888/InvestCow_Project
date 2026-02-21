@@ -53,3 +53,25 @@ android/build/
 android/.gradle/
 android/app/build/
 .vscode/
+
+# Node.js
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+backend/db_dump.json
+backend/check_status.js
+backend/find_live.js
+backend/search_live.js
+backend/fetch_yt.js
+backend/get_ids.js
+backend/get_live_now.js
+yt_search.html
+
+# Simulation
+**/cctv_simulator/node_modules/
+**/cctv_simulator/media/
+**/cctv_simulator/temp/
+
+

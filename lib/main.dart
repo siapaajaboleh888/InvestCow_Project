@@ -5,6 +5,7 @@ import 'package:investcow_app/screens/pasar_modal_page.dart';
 import 'package:investcow_app/screens/kunjungan_page.dart';
 import 'package:investcow_app/screens/akun_page.dart';
 import 'package:investcow_app/screens/login_page.dart';
+import 'package:investcow_app/screens/cctv_demo_page.dart';
 import 'package:investcow_app/services/auth_service.dart';
 
 void main() {
