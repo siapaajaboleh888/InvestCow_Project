@@ -47,31 +47,18 @@ class PriceEngine {
                 let pricePerKg = parseFloat(product.price_per_kg || 65000);
                 const healthScore = parseInt(product.health_score || 100);
 
-                // 2. SIMULASI PERTUMBUHAN FISIK (Transparency Point)
-                // Sapi tumbuh sedikit demi sedikit setiap tick. 
-                // Pertumbuhan dipengaruhi oleh health_score (0-100)
-                const actualGrowth = growthRate * (healthScore / 100);
-                currentWeight += actualGrowth;
+                const PriceCalculator = require('../utils/PriceCalculator');
+                const result = PriceCalculator.calculateNewPrice({
+                    currentWeight,
+                    growthRate,
+                    healthScore,
+                    pricePerKg,
+                    targetPrice
+                });
 
-                // 3. SIMULASI HARGA PASAR (Volatility Point)
-                // Harga per kg berfluktuasi ±0.1% per tick
-                let marketChangePercent = (Math.random() * 0.2 - 0.1) / 100;
-
-                // BIAS: Arahkan perlahan ke target_price jika diset admin (berbasis price per kg)
-                if (targetPrice !== null) {
-                    const currentCalculatedPrice = currentWeight * pricePerKg;
-                    const diff = targetPrice - currentCalculatedPrice;
-                    if (Math.abs(diff) > 100) {
-                        const bias = (diff > 0 ? 0.001 : -0.001);
-                        marketChangePercent += bias;
-                    }
-                }
-
-                pricePerKg = pricePerKg * (1 + marketChangePercent);
-
-                // 4. HITUNG HARGA AKHIR (Adil & Transparan)
-                // Harga = Berat (kg) x Harga (Rp/kg)
-                let newPrice = currentWeight * pricePerKg;
+                const newWeight = result.newWeight;
+                const newPricePerKg = result.newPricePerKg;
+                const newPrice = result.newPrice;
 
                 // 5. Update data di database
                 await pool.query(

@@ -7,8 +7,8 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "test": "node test_engine.js",
-    "devops-qa": "node test_engine.js"
+    "test": "node test_calculator.js",
+    "devops-qa": "node test_calculator.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

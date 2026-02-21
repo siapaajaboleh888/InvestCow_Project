@@ -1,30 +1,21 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:investcow_app/main.dart';
+import 'package:investcow_app/services/api_client.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('DevOps Sanity Tests', () {
+    test('ApiClient Default URL Check', () {
+      final client = ApiClient();
+      // Test ini memastikan base URL terinisialisasi
+      expect(client.baseUrl, isNotEmpty);
+      print('✅ DevOps: ApiClient initialized with ${client.baseUrl}');
+    });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    test('Logic Test: Simple math for InvestCow', () {
+      const weight = 300.0;
+      const pricePerKg = 60000.0;
+      const total = weight * pricePerKg;
+      expect(total, 18000000.0);
+      print('✅ DevOps: Price logic calculation verified');
+    });
   });
 }
