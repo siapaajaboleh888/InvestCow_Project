@@ -11,6 +11,7 @@
     "devops-qa": "node test_calculator.js"
   },
   "dependencies": {
+    "axios": "^1.13.5",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -20,6 +21,7 @@
     "morgan": "^1.10.0",
     "multer": "^2.0.2",
     "mysql2": "^3.11.3",
+    "rss-parser": "^3.13.0",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {

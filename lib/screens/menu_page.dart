@@ -56,13 +56,13 @@ class MenuPage extends StatelessWidget {
                 childAspectRatio: 1.05, // Sedikit lebih lebar
                 children: [
                   MenuCard(
-                    icon: Icons.health_and_safety,
-                    title: 'Kesehatan',
-                    color: Colors.red[400]!,
+                    icon: Icons.account_balance_wallet,
+                    title: 'Kas Sapi',
+                    color: Colors.cyan[600]!,
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const KesehatanPage()),
+                        MaterialPageRoute(builder: (context) => const KasPage()),
                       );
                     },
                   ),
@@ -111,13 +111,13 @@ class MenuPage extends StatelessWidget {
                     },
                   ),
                   MenuCard(
-                    icon: Icons.account_balance_wallet,
-                    title: 'Kas Sapi',
-                    color: Colors.cyan[600]!,
+                    icon: Icons.health_and_safety,
+                    title: 'Kesehatan',
+                    color: Colors.red[400]!,
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const KasPage()),
+                        MaterialPageRoute(builder: (context) => const KesehatanPage()),
                       );
                     },
                   ),

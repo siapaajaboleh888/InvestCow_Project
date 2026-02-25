@@ -1,67 +1,102 @@
 const express = require('express');
 const router = express.Router();
+const Parser = require('rss-parser');
+const parser = new Parser();
 
+// Konfigurasi Sumber Berita Real-time
+const FEEDS = [
+    { name: 'CNBC Indonesia', url: 'https://www.cnbcindonesia.com/investment/rss', logo: 'C', color: '#004785', urlLabel: 'cnbcindonesia.com' },
+    { name: 'Detik Finance', url: 'https://finance.detik.com/rss', logo: 'D', color: '#2b3990', urlLabel: 'detik.com' },
+    { name: 'Kontan Bisnis', url: 'https://www.kontan.co.id/rss', logo: 'K', color: '#ffcc00', urlLabel: 'kontan.co.id' },
+    { name: 'Antara Ekonomi', url: 'https://www.antaranews.com/rss/ekonomi.xml', logo: 'A', color: '#ed1c24', urlLabel: 'antaranews.com' },
+    { name: 'Republika', url: 'https://republika.co.id/rss/ekonomi/pertanian', logo: 'R', color: '#009245', urlLabel: 'republika.co.id' }
+];
 
-// Simulated real news for cattle/livestock
-// In a production app, you might use a News API or scrape an RSS feed.
+const KEYWORDS = ['sapi', 'lembu', 'ternak sapi', 'daging sapi', 'bovine', 'pakan sapi', 'penggemukan sapi', 'investasi ternak', 'livestock investment'];
+const EXCLUDE = [
+    'unggas', 'ayam', 'telur', 'bebek', 'ikan', 'padi', 'beras', 'minyak', 'sawit', 'ponsel', 'laptop', 'gadget', 'saham teknologi',
+    'mobil', 'pickup', 'otomotif', 'kendaraan', 'cabai', 'bawang', 'sayur', 'buah', 'pupuk', 'cetak sawah', 'bendungan', 'irigasi'
+];
+
 router.get('/', async (req, res) => {
     try {
-        // Current date for simulation
-        const now = new Date();
-        const dateStr = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-        const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        let allArticles = [];
 
-        const news = [
-            {
-                id: 1,
-                source: 'Kontan Ternak',
-                sourceUrl: 'kontan.co.id',
+        const feedPromises = FEEDS.map(async (source) => {
+            try {
+                const feed = await parser.parseURL(source.url);
+                return feed.items.map(item => ({
+                    ...item,
+                    sourceName: source.name,
+                    sourceLogo: source.logo,
+                    sourceColor: source.color,
+                    sourceUrl: source.urlLabel
+                }));
+            } catch (err) {
+                console.error(`Gagal ambil berita dari ${source.name}:`, err.message);
+                return [];
+            }
+        });
+
+        const results = await Promise.all(feedPromises);
+        allArticles = results.flat();
+
+        // Filter berita yang SANGAT RELEVAN saja
+        const filteredNews = allArticles.filter(article => {
+            const title = article.title.toLowerCase();
+            const snippet = (article.contentSnippet || '').toLowerCase();
+            const fullContent = (article.content || '').toLowerCase();
+
+            const combined = title + ' ' + snippet + ' ' + fullContent;
+
+            // Harus ada keyword sapi/ternak
+            const hasKeyword = KEYWORDS.some(kw => combined.includes(kw));
+            // Tidak boleh ada keyword exclude (seperti unggas/ayam)
+            const isExcluded = EXCLUDE.some(ex => combined.includes(ex));
+
+            return hasKeyword && !isExcluded;
+        }).slice(0, 10);
+
+        const formattedNews = filteredNews.map((item, index) => {
+            const pubDate = new Date(item.pubDate);
+            const timeStr = pubDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+            const dateStr = pubDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+
+            return {
+                id: index + 1,
+                source: item.sourceName,
+                sourceUrl: item.sourceUrl,
                 time: timeStr,
                 date: dateStr,
-                logo: 'K',
-                title: 'Laju Kenaikan Harga Sapi Bakalan di Jawa Timur Mencapai 5 Persen Jelang Ramadhan',
-                content: 'SURABAYA - Harga komoditas sapi bakalan di wilayah Jawa Timur tercatat mengalami kenaikan signifikan sebesar 5 persen dalam kurun waktu satu pekan terakhir. Kenaikan ini dipicu oleh tingginya prospek permintaan pasar menjelang bulan suci Ramadhan serta hari raya Idul Fitri mendatang. \n\nKetua Gabungan Peternak Sapi Potong Jawa Timur mengonfirmasi bahwa saat ini para pedagang dan investor mulai aktif menambah stok ternak guna mengantisipasi lonjakan konsumsi daging nasional. Selain faktor musiman, stabilitas pasokan pakan konsentrat juga menjadi faktor pendukung optimisme para peternak lokal dalam meningkatkan skala produksinya.',
-                logoColor: '#2196F3',
-            },
-            {
-                id: 2,
-                source: 'Bursa Sapi',
-                sourceUrl: 'bursasapi.com',
-                time: '04.41',
-                date: dateStr,
-                logo: 'B',
-                title: 'Australia dan Indonesia Jajaki Kerjasama Strategis Pengembangan Klaster Penggemukan Sapi',
-                content: 'LAMPUNG - Pemerintah Australia melalui departemen perdagangan internasional sedang mendalami peluang kerjasama investasi dalam pengembangan teknologi penggemukan sapi (feedlot) di wilayah Lampung dan Nusa Tenggara Barat. Kerjasama ini bertujuan untuk mentransfer pengetahuan di bidang manajemen nutrisi pakan serta perbaikan mutu genetik ternak. \n\nDelegasi Australia menyatakan bahwa Indonesia tetap menjadi mitra strategis utama dalam rantai pasok daging sapi global. Dengan implementasi teknologi manajemen terbaru, diharapkan kapasitas produksi unit penggemukan di Indonesia dapat meningkat hingga 15-20 persen dalam dua tahun ke depan.',
-                logoColor: '#FF9800',
-            },
-            {
-                id: 3,
-                source: 'Global Agri',
-                sourceUrl: 'globalagriculture.org',
-                time: '03.15',
-                date: dateStr,
-                logo: 'G',
-                title: 'Cow Investment Overview: The Role of Bovine Assets in a Diversified Global Portfolio',
-                content: 'LONDON - Global agricultural analysts highlight that livestock assets, particularly cattle, are increasingly becoming a fundamental component of institutional investment portfolios. In an era of economic volatility, bovine assets demonstrate a strong correlation with food security demands, making them a resilient hedge against inflation. \n\nThe latest report indicates that massive demand for premium protein sources in emerging markets is driving long-term valuation growth. Investors are increasingly utilizing digital platforms to access direct ownership models in cattle farming, which offers transparent monitoring and consistent biological growth yields.',
-                logoColor: '#4CAF50',
-            },
-            {
-                id: 4,
-                source: 'Info Pangan',
-                sourceUrl: 'infopangan.id',
-                time: '02.10',
-                date: dateStr,
-                logo: 'I',
-                title: 'Kementerian Pertanian Mengalokasikan Subsidi Bahan Baku Pakan Guna Menjaga Stabilitas Harga Daging',
-                content: 'JAKARTA - Guna menekan biaya produksi di tingkat peternak rakyat, Kementerian Pertanian secara resmi meluncurkan program subsidi bahan baku pakan mandiri. Program ini berfokus pada penguatan kapasitas produksi pabrik pakan skala kecil di sentra-sentra peternakan nasional untuk mengurangi ketergantungan pada bahan baku impor. \n\nMenteri Pertanian menegaskan bahwa efisiensi biaya pakan merupakan kunci utama dalam mempertahankan daya saing daging sapi lokal di pasar domestik. Inisiatif ini juga diharapkan mampu menjaga margin keuntungan peternak agar tetap stabil di tengah fluktuasi harga komoditas jagung global.',
-                logoColor: '#F44336',
-            }
-        ];
+                logo: item.sourceLogo,
+                logoColor: item.sourceColor,
+                title: item.title,
+                // Mengambil konten yang lebih panjang agar tidak "minim"
+                content: item.contentSnippet || item.content || 'Berita hari ini mengenai industri peternakan sapi nasional.',
+                url: item.link // Simpan URL asli untuk "Baca Selengkapnya"
+            };
+        });
 
-        return res.json(news);
-    } catch (e) {
-        console.error('News error:', e);
-        return res.status(500).json({ message: 'Error fetching news' });
+        // Fallback jika tidak ada berita spesifik sapi hari ini (Agar tidak kosong)
+        if (formattedNews.length === 0) {
+            formattedNews.push({
+                id: 99,
+                source: 'InvestCow Insight',
+                sourceUrl: 'investcow.id',
+                time: '08:00',
+                date: 'Edisi Khusus',
+                logo: 'I',
+                logoColor: '#4CAF50',
+                title: 'Analisis Strategis: Mengapa Investasi Sapi Tetap Menjadi Safe Haven di Tahun 2026',
+                content: 'Dalam tengah fluktuasi pasar global, aset biologis seperti sapi menunjukkan ketahanan yang luar biasa. Permintaan daging sapi domestik yang terus meningkat di Indonesia, ditambah dengan program swasembada pangan nasional, menciptakan ekosistem investasi yang sangat menjanjikan dengan risiko yang terukur. \n\nTim analis InvestCow mencatat bahwa pertumbuhan bobot harian (ADG) sapi di klaster mitra kami tetap berada di angka 0.8kg - 1.2kg per hari, memastikan proyeksi imbal hasil bagi investor tetap stabil. Klik untuk mempelajari lebih lanjut tentang strategi diversifikasi portofolio melalui aset ternak.',
+                url: 'https://investcow.id/edu/safe-haven-2026'
+            });
+        }
+
+        res.json(formattedNews);
+    } catch (error) {
+        console.error('Error News Route:', error);
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 

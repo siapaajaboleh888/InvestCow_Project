@@ -15,11 +15,22 @@ import 'package:flutter/services.dart';
 class CurrencyInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    if (newValue.selection.baseOffset == 0) return newValue;
-    double value = double.parse(newValue.text.replaceAll('.', ''));
+    if (newValue.text.isEmpty) {
+      return newValue.copyWith(text: '');
+    }
+
+    // Hanya ambil angka
+    String cleanText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    
+    if (cleanText.isEmpty) {
+      return newValue.copyWith(text: '');
+    }
+
+    double value = double.parse(cleanText);
     final formatter = NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0);
     String newText = formatter.format(value).trim();
-    return newValue.copyWith(
+
+    return TextEditingValue(
       text: newText,
       selection: TextSelection.collapsed(offset: newText.length),
     );
@@ -86,13 +97,12 @@ class _PasarModalPageState extends State<PasarModalPage> {
   }
 
   double _toDouble(dynamic val) {
-    if (val == null) return 10.0;
+    if (val == null) return 0.0;
     double? d;
     if (val is num) d = val.toDouble();
     if (val is String) d = double.tryParse(val);
     
-    // Minimum 10.0 to avoid any log issues or tiny numbers causing division problems
-    if (d == null || d <= 0 || d.isNaN || d.isInfinite) return 10.0; 
+    if (d == null || d.isNaN || d.isInfinite) return 0.0; 
     return d;
   }
 
@@ -366,36 +376,51 @@ class _PasarModalPageState extends State<PasarModalPage> {
               child: Column(
                 children: [
                   if (_products.isNotEmpty)
-                    DropdownButton<Map<String, dynamic>>(
-                      value: _selectedProduct,
-                      dropdownColor: const Color(0xFF1E222D),
-                      isExpanded: true,
-                      style: const TextStyle(color: Colors.white, fontSize: 18),
-                      underline: Container(),
-                      items: _products.map((product) {
-                        return DropdownMenuItem(
-                          value: product,
-                          child: Text('${product['ticker_code'] ?? 'COW'} - ${product['name'] ?? 'Sapi'}'),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() {
-                            _selectedProduct = val;
-                            _currentPrice = _toDouble(val['price']);
-                            final prevPrice = _toDouble(val['prev_price']);
-                            _percentChange = prevPrice != 0 
-                                ? ((_currentPrice - prevPrice) / prevPrice) * 100 
-                                : 0.0;
-                            _isPriceUp = _currentPrice >= prevPrice;
-                            _currentWeight = _toDouble(val['current_weight']);
-                            _pricePerKg = _toDouble(val['price_per_kg']);
-                            _marketSentiment = val['market_sentiment']?.toString();
-                            _candles = [];
-                          });
-                          _fetchHistory(val['id']);
-                        }
-                      },
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: Colors.cyan.withOpacity(0.6), width: 2),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<Map<String, dynamic>>(
+                          value: _selectedProduct,
+                          dropdownColor: const Color(0xFF1E222D),
+                          isExpanded: true,
+                          icon: const Icon(Icons.arrow_drop_down_circle_outlined, color: Colors.cyanAccent),
+                          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                          items: _products.map((product) {
+                            return DropdownMenuItem(
+                              value: product,
+                              child: Row(
+                                children: [
+                                  const Text('Jenis Sapi: ', style: TextStyle(color: Colors.white54, fontSize: 14, fontWeight: FontWeight.normal)),
+                                  Text('${product['ticker_code'] ?? 'COW'} - ${product['name'] ?? 'Sapi'}'),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() {
+                                _selectedProduct = val;
+                                _currentPrice = _toDouble(val['price']);
+                                final prevPrice = _toDouble(val['prev_price']);
+                                _percentChange = prevPrice != 0 
+                                    ? ((_currentPrice - prevPrice) / prevPrice) * 100 
+                                    : 0.0;
+                                _isPriceUp = _currentPrice >= prevPrice;
+                                _currentWeight = _toDouble(val['current_weight']);
+                                _pricePerKg = _toDouble(val['price_per_kg']);
+                                _marketSentiment = val['market_sentiment']?.toString();
+                                _candles = [];
+                              });
+                              _fetchHistory(val['id']);
+                            }
+                          },
+                        ),
+                      ),
                     ),
                   const SizedBox(height: 8),
                   Row(
@@ -545,12 +570,30 @@ class _PasarModalPageState extends State<PasarModalPage> {
                     decoration: InputDecoration(
                       prefixText: 'Rp ',
                       prefixStyle: const TextStyle(color: Colors.grey, fontSize: 18),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.clear, color: Colors.grey, size: 20),
+                        onPressed: () {
+                          _amountController.clear();
+                          setState(() {});
+                        },
+                      ),
                       enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white24), borderRadius: BorderRadius.circular(8)),
                       focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.cyan), borderRadius: BorderRadius.circular(8)),
                       filled: true,
                       fillColor: Colors.black26,
                     ),
                     onChanged: (val) => setState(() {}),
+                  ),
+                  const SizedBox(height: 12),
+                  // Quick Selection Chips
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildQuickChip('25%', 0.25),
+                      _buildQuickChip('50%', 0.50),
+                      _buildQuickChip('75%', 0.75),
+                      _buildQuickChip('100% (MAX)', 1.0),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   if (_selectedProduct != null)
@@ -562,11 +605,19 @@ class _PasarModalPageState extends State<PasarModalPage> {
                   Row(
                     children: [
                       Expanded(
-                        child: _tradeButton('INVESTASI / BELI', Colors.greenAccent, () => _handleTrade('BUY')),
+                        child: _tradeButton(
+                          'BELI ${_selectedProduct?['ticker_code'] ?? 'SAPI'}', 
+                          Colors.greenAccent, 
+                          () => _handleTrade('BUY')
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: _tradeButton('JUAL', Colors.redAccent, () => _handleTrade('SELL')),
+                        child: _tradeButton(
+                          'JUAL ${_selectedProduct?['ticker_code'] ?? 'SAPI'}', 
+                          Colors.redAccent, 
+                          () => _handleTrade('SELL')
+                        ),
                       ),
                     ],
                   )
@@ -574,41 +625,69 @@ class _PasarModalPageState extends State<PasarModalPage> {
               ),
             ),
 
-            // Portfolio Summary
-            if (_portfolioSummary.isNotEmpty)
-              Container(
+            // Portfolio Summary - Only show if there are active holdings
+            () {
+              final activePortfolio = _portfolioSummary.where((item) => _toDouble(item['total_quantity']) > 0.01).toList();
+              if (activePortfolio.isEmpty) return const SizedBox.shrink();
+
+              return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E222D),
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white10),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('Portofolio Sapi Saya', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
-                    ..._portfolioSummary.map((item) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(item['symbol'] ?? 'COW', style: const TextStyle(color: Colors.white70)),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text('${_toDouble(item['total_quantity']).toStringAsFixed(2)} Ekor', style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
-                                Text(_formatCurrency(_toDouble(item['total_investment'])), style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                              ],
-                            ),
-                          ],
+                    ...activePortfolio.map((item) {
+                      final ticker = item['symbol'] ?? 'COW';
+                      return InkWell(
+                        onTap: () {
+                          // Find the product in _products that matches this symbol
+                          final prod = _products.firstWhere(
+                            (p) => p['ticker_code'] == ticker,
+                            orElse: () => {},
+                          );
+                          if (prod.isNotEmpty) {
+                            setState(() {
+                              _selectedProduct = prod;
+                              _currentPrice = _toDouble(prod['price']);
+                              _fetchHistory(prod['id']);
+                            });
+                          }
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.touch_app, size: 14, color: Colors.cyanAccent),
+                                  const SizedBox(width: 8),
+                                  Text(ticker, style: const TextStyle(color: Colors.white70)),
+                                ],
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text('${_toDouble(item['total_quantity']).toStringAsFixed(2)} Ekor', style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
+                                  Text(_formatCurrency(_toDouble(item['total_investment'])), style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     }).toList(),
                   ],
                 ),
-              ),
+              );
+            }(),
           ],
         ),
       ),
@@ -626,17 +705,68 @@ class _PasarModalPageState extends State<PasarModalPage> {
     );
   }
 
+  Widget _buildQuickChip(String label, double percentage) {
+    return InkWell(
+      onTap: () {
+        double amount = 0;
+        // If user already owns this cattle, they might want to sell a percentage of it.
+        // If they don't, they want to buy a percentage of their balance.
+        // But more logically: let's use balance for buy-focused flow, 
+        // or owned asset value for sell-focused flow if they explicitly choose.
+        // For simplicity: Max = Balance.
+        
+        final ticker = _selectedProduct!['ticker_code'];
+        final ownedItem = _portfolioSummary.firstWhere(
+          (item) => item['symbol'] == ticker,
+          orElse: () => {},
+        );
+
+        if (ownedItem.isNotEmpty && _toDouble(ownedItem['total_quantity']) > 0) {
+           // If they own it, 100% means selling all of it
+           double totalOwnedValue = _toDouble(ownedItem['total_quantity']) * _currentPrice;
+           amount = totalOwnedValue * percentage;
+        } else {
+           // If they don't own it, 100% means using all balance
+           amount = _userBalance * percentage;
+        }
+
+        if (amount > 0) {
+          final formatter = NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0);
+          _amountController.text = formatter.format(amount).trim();
+          setState(() {});
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          border: Border.all(color: Colors.white10),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
   Widget _tradeButton(String label, Color color, VoidCallback onPressed) {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
         backgroundColor: color.withOpacity(0.2),
         foregroundColor: color,
-        side: BorderSide(color: color),
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        side: BorderSide(color: color, width: 2),
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
       ),
-      child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+      child: Text(
+        label, 
+        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1),
+        textAlign: TextAlign.center,
+      ),
     );
   }
 
@@ -807,6 +937,8 @@ class _PasarModalPageState extends State<PasarModalPage> {
       return;
     }
 
+    final qty = nominal / _currentPrice;
+
     if (type == 'BUY' && nominal > _userBalance) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Saldo tidak mencukupi. Silakan Top Up!'), backgroundColor: Colors.redAccent),
@@ -814,7 +946,43 @@ class _PasarModalPageState extends State<PasarModalPage> {
       return;
     }
 
-    final qty = nominal / _currentPrice;
+    // Validation for SELL: Check ownership and quantity
+    if (type == 'SELL') {
+      final ticker = _selectedProduct!['ticker_code'];
+      final ownedItem = _portfolioSummary.firstWhere(
+        (item) => item['symbol'] == ticker,
+        orElse: () => {},
+      );
+
+      if (ownedItem.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            padding: const EdgeInsets.all(16),
+            content: Text(
+              '⚠️ Gagal: Sapi yang ingin Anda jual ($ticker) tidak sesuai dengan kepemilikan aset di portofolio Anda. Mohon pilih jenis sapi yang benar.',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            backgroundColor: Colors.redAccent,
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      final ownedQty = _toDouble(ownedItem['total_quantity']);
+      if (qty > (ownedQty + 0.000001)) { // Small epsilon to avoid floating point issues
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Aset tidak mencukupi! Anda hanya memiliki ${ownedQty.toStringAsFixed(2)} ekor sapi ini, sedangkan Anda mencoba menjual ${qty.toStringAsFixed(2)} ekor.'
+            ),
+            backgroundColor: Colors.orange[800],
+          ),
+        );
+        return;
+      }
+    }
 
     showDialog(
       context: context,
@@ -831,6 +999,38 @@ class _PasarModalPageState extends State<PasarModalPage> {
             style: ElevatedButton.styleFrom(backgroundColor: type == 'BUY' ? Colors.green : Colors.red),
             onPressed: () async {
               Navigator.pop(context);
+              
+              // 1. Local Optimistic Update for "Real-time" feel
+              setState(() {
+                final ticker = _selectedProduct!['ticker_code'];
+                int index = _portfolioSummary.indexWhere((item) => item['symbol'] == ticker);
+                
+                if (type == 'BUY') {
+                  _userBalance -= nominal;
+                  if (index != -1) {
+                    _portfolioSummary[index]['total_quantity'] = _toDouble(_portfolioSummary[index]['total_quantity']) + qty;
+                    _portfolioSummary[index]['total_investment'] = _toDouble(_portfolioSummary[index]['total_investment']) + nominal;
+                  } else {
+                    _portfolioSummary.add({
+                      'symbol': ticker,
+                      'total_quantity': qty,
+                      'total_investment': nominal,
+                    });
+                  }
+                } else {
+                  _userBalance += nominal; // Estimated, backend will provide net gain
+                  if (index != -1) {
+                    double current = _toDouble(_portfolioSummary[index]['total_quantity']);
+                    double next = current - qty;
+                    if (next < 0.0001) {
+                      _portfolioSummary.removeAt(index);
+                    } else {
+                      _portfolioSummary[index]['total_quantity'] = next;
+                    }
+                  }
+                }
+              });
+
               try {
                 final portfolio = await _portfolioService.getOrCreateDefault();
                 await _trxService.create(
@@ -845,8 +1045,14 @@ class _PasarModalPageState extends State<PasarModalPage> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Transaksi ${type == 'BUY' ? 'Pembelian' : 'Penjualan'} Berhasil!'), backgroundColor: Colors.green),
                 );
-                _fetchUserData(); // Refresh balance & portfolio
+                
+                // 2. Sync with Server after a tiny delay to ensure DB propagation
+                await Future.delayed(const Duration(milliseconds: 800));
+                await _fetchUserData(); 
+                await _fetchInitialData(); // Refresh product quotas too
               } catch (e) {
+                // Rollback local state on error
+                _fetchUserData();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Error: $e'), backgroundColor: Colors.redAccent),
                 );
