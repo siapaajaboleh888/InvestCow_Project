@@ -56,8 +56,8 @@ router.get('/portfolio-summary', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const [rows] = await pool.query(`
       SELECT t.symbol, 
-             SUM(CASE WHEN t.type = 'buy' THEN t.quantity ELSE -t.quantity END) as total_quantity,
-             SUM(CASE WHEN t.type = 'buy' THEN t.quantity * t.price ELSE -(t.quantity * t.price) END) as total_investment
+             SUM(CASE WHEN LOWER(t.type) = 'buy' THEN t.quantity ELSE -t.quantity END) as total_quantity,
+             SUM(CASE WHEN LOWER(t.type) = 'buy' THEN t.quantity * t.price ELSE -(t.quantity * t.price) END) as total_investment
       FROM transactions t
       JOIN portfolios p ON t.portfolio_id = p.id
       WHERE p.user_id = :uid

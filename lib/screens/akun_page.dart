@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:typed_data';
+import 'dart:convert';
 import '../services/auth_service.dart';
 import '../services/logout_service.dart';
 import 'profil_page.dart';
@@ -23,6 +26,7 @@ class _AkunPageState extends State<AkunPage> {
   String _userName = 'Loading...';
   String _userEmail = 'Loading...';
   String _userRole = 'user';
+  Uint8List? _imageBytes;
 
   @override
   void initState() {
@@ -35,13 +39,52 @@ class _AkunPageState extends State<AkunPage> {
     final name = await _authService.getUserName();
     final email = await _authService.getUserEmail();
     final role = await _authService.getUserRole();
+    final profilePicBase64 = await _authService.getProfilePicture();
 
     if (mounted) {
       setState(() {
         _userName = name ?? 'Nama Pengguna';
         _userEmail = email ?? 'email@example.com';
         _userRole = role;
+        if (profilePicBase64 != null) {
+          try {
+            _imageBytes = base64Decode(profilePicBase64);
+          } catch (_) {}
+        }
       });
+    }
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.first.bytes != null) {
+        final bytes = result.files.first.bytes!;
+        final base64Image = base64Encode(bytes);
+        
+        setState(() {
+          _imageBytes = bytes;
+        });
+        
+        // Simpan ke backend & SharedPreferences
+        await _authService.updateProfilePicture(base64Image);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Foto profil berhasil diperbarui'), backgroundColor: Colors.green),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memilih foto: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -62,14 +105,43 @@ class _AkunPageState extends State<AkunPage> {
               padding: const EdgeInsets.all(40),
               child: Column(
                 children: [
-                  // Avatar
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: Colors.grey[300],
-                    child: Icon(
-                      Icons.person,
-                      size: 60,
-                      color: Colors.grey[600],
+                  // Avatar with Click to Change
+                  GestureDetector(
+                    onTap: _pickImage,
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 60,
+                          backgroundColor: Colors.grey[200],
+                          backgroundImage: _imageBytes != null 
+                              ? MemoryImage(_imageBytes!) 
+                              : null,
+                          child: _imageBytes == null
+                              ? Icon(
+                                  Icons.person,
+                                  size: 70,
+                                  color: Colors.grey[400],
+                                )
+                              : null,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.blue,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: const Icon(
+                              Icons.camera_alt,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 20),

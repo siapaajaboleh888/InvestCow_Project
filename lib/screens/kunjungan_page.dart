@@ -192,7 +192,7 @@ class _KunjunganPageState extends State<KunjunganPage> {
     String keterangan,
   ) async {
     // Ganti dengan nomor WhatsApp pemilik kandang
-    const String nomorPemilik = '6281234567890';
+    const String nomorPemilik = '6285334159328';
 
     final String pesan =
         '''
@@ -449,15 +449,15 @@ Terima kasih.
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.phone, color: Colors.green),
                         title: const Text('Telepon'),
-                        subtitle: const Text('+62 812-3456-7890'),
-                        onTap: () => _telepon('+6281234567890'),
+                        subtitle: const Text('085334159328'),
+                        onTap: () => _telepon('085334159328'),
                       ),
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.chat, color: Colors.green),
                         title: const Text('WhatsApp'),
-                        subtitle: const Text('+62 812-3456-7890'),
-                        onTap: () => _bukaWhatsApp('6281234567890'),
+                        subtitle: const Text('085334159328'),
+                        onTap: () => _bukaWhatsApp('6285334159328'),
                       ),
                     ],
                   ),

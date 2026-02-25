@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../services/api_client.dart';
+import '../services/auth_service.dart';
+import 'detail_kandang_page.dart';
 
 class KandangPage extends StatefulWidget {
   const KandangPage({super.key});
@@ -10,12 +13,17 @@ class KandangPage extends StatefulWidget {
 }
 
 class _KandangPageState extends State<KandangPage> {
-  final List<Map<String, dynamic>> _barns = [];
+  final _client = ApiClient();
+  final _auth = AuthService();
+  
+  List<Map<String, dynamic>> _barns = [];
+  bool _loading = true;
+  String? _error;
   String _search = '';
-  String _occFilter = 'Semua'; // Semua, Tersedia, Penuh
+  String _occFilter = 'Semua';
 
   int get totalCows => _barns.fold(0, (p, e) => p + (e['occupied'] as int));
-  int get totalBarns => _barns.length;
+  int get totalBarns => _barns.where((e) => (e['occupied'] as int) > 0).length;
 
   @override
   void initState() {
@@ -24,74 +32,72 @@ class _KandangPageState extends State<KandangPage> {
   }
 
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('barn_records');
+    if (!mounted) return;
     setState(() {
-      _barns
-        ..clear()
-        ..addAll(raw == null || raw.isEmpty
-            ? []
-            : (jsonDecode(raw) as List)
-                .cast<Map<String, dynamic>>()
-                .map((e) => {
-                      'name': e['name'],
-                      'capacity': e['capacity'],
-                      'occupied': e['occupied'],
-                    }));
+      _loading = true;
+      _error = null;
     });
-  }
 
-  Future<void> _save() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      'barn_records',
-      jsonEncode(_barns
-          .map((e) => {
-                'name': e['name'],
-                'capacity': e['capacity'],
-                'occupied': e['occupied'],
-              })
-          .toList()),
-    );
-  }
+    try {
+      final token = await _auth.getToken();
+      
+      // 1. Fetch products (types of cattle available in market)
+      final prodUri = _client.uri('/admin/products-public');
+      final prodRes = await http.get(prodUri, headers: _client.jsonHeaders(token: token));
+      
+      if (prodRes.statusCode != 200) {
+        throw Exception('Gagal memuat jenis sapi (${prodRes.statusCode})');
+      }
+      
+      final products = (jsonDecode(prodRes.body) as List).cast<Map<String, dynamic>>();
 
-  Future<void> _addOrEdit({Map<String, dynamic>? current}) async {
-    final name = TextEditingController(text: current?['name'] ?? 'Kandang Baru');
-    final capacity = TextEditingController(text: (current?['capacity'] ?? 10).toString());
-    final occupied = TextEditingController(text: (current?['occupied'] ?? 0).toString());
-
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(current == null ? 'Tambah Kandang' : 'Edit Kandang'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(decoration: const InputDecoration(labelText: 'Nama'), controller: name),
-            const SizedBox(height: 8),
-            TextField(decoration: const InputDecoration(labelText: 'Kapasitas'), controller: capacity, keyboardType: TextInputType.number),
-            const SizedBox(height: 8),
-            TextField(decoration: const InputDecoration(labelText: 'Terisi'), controller: occupied, keyboardType: TextInputType.number),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Simpan')),
-        ],
-      ),
-    );
-    if (ok == true) {
-      final cap = int.tryParse(capacity.text) ?? 0;
-      final occ = (int.tryParse(occupied.text) ?? 0).clamp(0, cap);
-      setState(() {
-        if (current == null) {
-          _barns.add({'name': name.text.trim(), 'capacity': cap, 'occupied': occ});
-        } else {
-          final idx = _barns.indexOf(current);
-          _barns[idx] = {'name': name.text.trim(), 'capacity': cap, 'occupied': occ};
+      // 2. Fetch portfolio summary (user's cows)
+      final summaryUri = _client.uri('/transactions/portfolio-summary');
+      final summaryRes = await http.get(summaryUri, headers: _client.jsonHeaders(token: token));
+      
+      Map<String, double> ownership = {};
+      if (summaryRes.statusCode == 200) {
+        final summaryData = (jsonDecode(summaryRes.body) as List).cast<Map<String, dynamic>>();
+        for (var item in summaryData) {
+          ownership[item['symbol'].toString()] = double.tryParse(item['total_quantity'].toString()) ?? 0.0;
         }
-      });
-      await _save();
+      }
+
+      // 3. Map to barns
+      final List<Map<String, dynamic>> newBarns = products.map((p) {
+        final name = p['name'].toString();
+        final ticker = p['ticker_code'].toString();
+        
+        // Sum ownership from both possible symbols (Name or Ticker)
+        final occupied = (ownership[name] ?? 0.0) + (ownership[ticker] ?? 0.0);
+        
+        return {
+          'name': name,
+          'capacity': 100, // Management capacity for visual reference
+          'occupied': occupied.toInt(),
+          'ticker': ticker,
+          'price': p['price'],
+          'weight': p['current_weight'],
+          'growth': p['daily_growth_rate'],
+          'cctv_url': p['cctv_url'],
+          'image_url': p['image_url'],
+          'health': p['health_score'] ?? 100,
+        };
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _barns = newBarns;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -107,6 +113,12 @@ class _KandangPageState extends State<KandangPage> {
           style: TextStyle(fontWeight: FontWeight.w500, fontSize: 20),
         ),
         elevation: 0,
+        actions: [
+          IconButton(
+            onPressed: _load,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -133,152 +145,131 @@ class _KandangPageState extends State<KandangPage> {
                     ),
                     child: Column(
                       children: [
-                        Icon(Icons.pets, color: Colors.white, size: 60),
+                        const Icon(Icons.pets, color: Colors.white, size: 60),
                         const SizedBox(height: 12),
-                        const Text('Total Sapi', style: TextStyle(fontSize: 20, color: Colors.white70)),
+                        const Text('Total Sapi Dimiliki', style: TextStyle(fontSize: 20, color: Colors.white70)),
                         const SizedBox(height: 8),
                         Text(
                           '$totalCows',
                           style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                         const SizedBox(height: 8),
-                        Text('Kandang: $totalBarns', style: const TextStyle(fontSize: 16, color: Colors.white70)),
+                        Text('Kategori Kandang: $totalBarns', style: const TextStyle(fontSize: 16, color: Colors.white70)),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text('Daftar Kandang', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87)),
+                const Text('Daftar Kandang Per Jenis', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87)),
                 const SizedBox(height: 8),
+                
                 // Search & Filter
                 Row(
                   children: [
                     Expanded(
                       child: TextField(
                         decoration: InputDecoration(
-                          hintText: 'Cari nama kandang...',
+                          hintText: 'Cari jenis sapi...',
                           prefixIcon: const Icon(Icons.search),
                           isDense: true,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          fillColor: Colors.white,
+                          filled: true,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                         ),
                         onChanged: (v) => setState(() => _search = v.trim().toLowerCase()),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    DropdownButton<String>(
-                      value: _occFilter,
-                      items: const [
-                        DropdownMenuItem(value: 'Semua', child: Text('Semua')),
-                        DropdownMenuItem(value: 'Tersedia', child: Text('Tersedia')),
-                        DropdownMenuItem(value: 'Penuh', child: Text('Penuh')),
-                      ],
-                      onChanged: (v) => setState(() => _occFilter = v ?? 'Semua'),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _barns
-                      .where((b) {
-                        final name = (b['name'] as String).toLowerCase();
-                        final cap = b['capacity'] as int;
-                        final occ = b['occupied'] as int;
-                        final matchSearch = _search.isEmpty || name.contains(_search);
-                        final matchFilter = _occFilter == 'Semua' || (_occFilter == 'Tersedia' && occ < cap) || (_occFilter == 'Penuh' && occ >= cap);
-                        return matchSearch && matchFilter;
-                      })
-                      .length,
-                  itemBuilder: (context, index) {
-                    final filtered = _barns.where((b) {
-                      final name = (b['name'] as String).toLowerCase();
-                      final cap = b['capacity'] as int;
-                      final occ = b['occupied'] as int;
-                      final matchSearch = _search.isEmpty || name.contains(_search);
-                      final matchFilter = _occFilter == 'Semua' || (_occFilter == 'Tersedia' && occ < cap) || (_occFilter == 'Penuh' && occ >= cap);
-                      return matchSearch && matchFilter;
-                    }).toList();
-                    final b = filtered[index];
-                    final cap = b['capacity'] as int;
-                    final occ = b['occupied'] as int;
-                    final ratio = cap == 0 ? 0.0 : (occ / cap).clamp(0.0, 1.0);
-                    return Card(
-                      elevation: 2,
-                      margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(16),
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.brown[100],
-                          radius: 30,
-                          child: Icon(Icons.home, color: Colors.brown[700], size: 30),
-                        ),
-                        title: Text(
-                          b['name'] as String,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Isi: $occ/$cap ekor'),
-                            const SizedBox(height: 4),
-                            LinearProgressIndicator(
-                              value: ratio,
-                              backgroundColor: Colors.grey[300],
-                              color: Colors.brown[400],
-                            ),
-                          ],
-                        ),
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (v) async {
-                            if (v == 'edit') {
-                              await _addOrEdit(current: b);
-                            } else if (v == 'delete') {
-                              final ok = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('Hapus kandang?'),
-                                  content: const Text('Tindakan ini tidak dapat dibatalkan.'),
-                                  actions: [
-                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
-                                    ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Hapus')),
-                                  ],
-                                ),
-                              );
-                              if (ok == true) {
-                                setState(() => _barns.removeAt(index));
-                                await _save();
-                              }
-                            }
-                          },
-                          itemBuilder: (ctx) => const [
-                            PopupMenuItem(value: 'edit', child: Text('Edit')),
-                            PopupMenuItem(value: 'delete', child: Text('Hapus')),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                if (_barns.isEmpty)
+                
+                if (_loading)
+                  const Center(child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: CircularProgressIndicator(),
+                  ))
+                else if (_error != null)
+                  Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)))
+                else if (_barns.where((b) => (b['occupied'] as int) > 0).isEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 24.0),
                     child: Center(
-                      child: Text('Belum ada kandang. Tekan + untuk menambah.', style: TextStyle(color: Colors.grey[700])),
+                      child: Text('Belum ada sapi yang Anda miliki.', style: TextStyle(color: Colors.grey[700])),
                     ),
+                  )
+                else
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _barns
+                        .where((b) {
+                          final name = (b['name'] as String).toLowerCase();
+                          final owned = (b['occupied'] as int) > 0;
+                          return owned && (_search.isEmpty || name.contains(_search));
+                        })
+                        .length,
+                    itemBuilder: (context, index) {
+                      final filtered = _barns.where((b) {
+                        final name = (b['name'] as String).toLowerCase();
+                        final owned = (b['occupied'] as int) > 0;
+                        return owned && (_search.isEmpty || name.contains(_search));
+                      }).toList();
+                      
+                      final b = filtered[index];
+                      final cap = b['capacity'] as int;
+                      final occ = b['occupied'] as int;
+                      final ratio = cap == 0 ? 0.0 : (occ / cap).clamp(0.0, 1.0);
+                      
+                      return Card(
+                        elevation: 2,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.all(16),
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.brown[100],
+                            radius: 30,
+                            child: Icon(Icons.home, color: Colors.brown[700], size: 30),
+                          ),
+                          title: Text(
+                            b['name'] as String,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Kepemilikan: $occ ekor'),
+                              const SizedBox(height: 4),
+                              LinearProgressIndicator(
+                                value: ratio > 0 ? ratio : 0.02, // Small sliver if 0 but for UI
+                                backgroundColor: Colors.grey[300],
+                                color: occ > 0 ? Colors.brown[400] : Colors.grey[400],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Kode: ${b['ticker']}',
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => DetailKandangPage(barn: b),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
                   ),
               ],
             ),
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _addOrEdit(),
-        backgroundColor: Colors.brown[400],
-        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }

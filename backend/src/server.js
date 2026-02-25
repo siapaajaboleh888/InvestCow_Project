@@ -9,6 +9,7 @@ const authRoutes = require('./routes/auth');
 const portfolioRoutes = require('./routes/portfolios');
 const transactionRoutes = require('./routes/transactions');
 const adminRoutes = require('./routes/admin');
+const newsRoutes = require('./routes/news');
 
 const app = express();
 const http = require('http');
@@ -28,7 +29,8 @@ PriceEngine.init(io);
 
 app.use(helmet());
 app.use(cors({ origin: '*' }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(morgan('dev'));
 
 // Static files for uploaded images
@@ -46,6 +48,7 @@ app.use('/auth', authRoutes);
 app.use('/portfolios', portfolioRoutes);
 app.use('/transactions', transactionRoutes);
 app.use('/admin', adminRoutes);
+app.use('/news', newsRoutes);
 
 // Socket.io connection handling
 io.on('connection', (socket) => {

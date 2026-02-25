@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../services/api_client.dart';
+import '../services/auth_service.dart';
 
 class KesehatanPage extends StatefulWidget {
   const KesehatanPage({super.key});
@@ -10,7 +12,13 @@ class KesehatanPage extends StatefulWidget {
 }
 
 class _KesehatanPageState extends State<KesehatanPage> {
-  final List<Map<String, dynamic>> _records = [];
+  final _client = ApiClient();
+  final _auth = AuthService();
+
+  List<Map<String, dynamic>> _records = [];
+  bool _loading = true;
+  String? _error;
+
   int get sehatCount => _records.where((e) => e['status'] == 'Sehat').length;
   int get perawatanCount => _records.where((e) => e['status'] != 'Sehat').length;
 
@@ -21,106 +29,67 @@ class _KesehatanPageState extends State<KesehatanPage> {
   }
 
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('health_records');
+    if (!mounted) return;
     setState(() {
-      _records
-        ..clear()
-        ..addAll(raw == null || raw.isEmpty
-            ? []
-            : (jsonDecode(raw) as List)
-                .cast<Map<String, dynamic>>()
-                .map((e) => {
-                      'nama': e['nama'],
-                      'status': e['status'],
-                      'next': e['next'] != null ? DateTime.parse(e['next']) : null,
-                    }));
+      _loading = true;
+      _error = null;
     });
-  }
 
-  Future<void> _save() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      'health_records',
-      jsonEncode(_records
-          .map((e) => {
-                'nama': e['nama'],
-                'status': e['status'],
-                'next': (e['next'] as DateTime?)?.toIso8601String(),
-              })
-          .toList()),
-    );
-  }
+    try {
+      final token = await _auth.getToken();
+      
+      // 1. Fetch products to get health_score
+      final prodUri = _client.uri('/admin/products-public');
+      final prodRes = await http.get(prodUri, headers: _client.jsonHeaders(token: token));
+      if (prodRes.statusCode != 200) throw Exception('Failed to load products');
+      final products = (jsonDecode(prodRes.body) as List).cast<Map<String, dynamic>>();
 
-  Future<void> _addOrEdit({Map<String, dynamic>? current}) async {
-    final name = TextEditingController(text: current?['nama'] ?? '');
-    String status = current?['status'] ?? 'Sehat';
-    DateTime? nextDate = current?['next'];
+      // 2. Fetch portfolio summary to see what the user owns
+      final summaryUri = _client.uri('/transactions/portfolio-summary');
+      final summaryRes = await http.get(summaryUri, headers: _client.jsonHeaders(token: token));
+      if (summaryRes.statusCode != 200) throw Exception('Failed to load portfolio');
+      final summaryData = (jsonDecode(summaryRes.body) as List).cast<Map<String, dynamic>>();
 
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog(
-          title: Text(current == null ? 'Tambah Catatan' : 'Edit Catatan'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: name,
-                  decoration: const InputDecoration(labelText: 'Nama Sapi'),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: status,
-                  items: const [
-                    DropdownMenuItem(value: 'Sehat', child: Text('Sehat')),
-                    DropdownMenuItem(value: 'Perawatan', child: Text('Perawatan')),
-                    DropdownMenuItem(value: 'Sakit', child: Text('Sakit')),
-                  ],
-                  onChanged: (v) => setS(() => status = v ?? 'Sehat'),
-                  decoration: const InputDecoration(labelText: 'Status'),
-                ),
-                const SizedBox(height: 8),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.vaccines),
-                  title: const Text('Jadwal Vaksin Berikutnya'),
-                  subtitle: Text(
-                    nextDate == null
-                        ? 'Belum diatur'
-                        : '${nextDate!.day}/${nextDate!.month}/${nextDate!.year}',
-                  ),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: nextDate ?? DateTime.now().add(const Duration(days: 30)),
-                      firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
-                    );
-                    if (picked != null) setS(() => nextDate = picked);
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
-            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Simpan')),
-          ],
-        ),
-      ),
-    );
-    if (ok == true && name.text.trim().isNotEmpty) {
-      setState(() {
-        if (current == null) {
-          _records.add({'nama': name.text.trim(), 'status': status, 'next': nextDate});
-        } else {
-          final idx = _records.indexOf(current);
-          _records[idx] = {'nama': name.text.trim(), 'status': status, 'next': nextDate};
+      // Pre-map ownership for quick lookup by name or ticker
+      Map<String, double> ownership = {};
+      for (var item in summaryData) {
+        ownership[item['symbol'].toString()] = double.tryParse(item['total_quantity'].toString()) ?? 0.0;
+      }
+
+      // 3. Match owned cows to product health data
+      final List<Map<String, dynamic>> newRecords = [];
+      for (var prod in products) {
+        final name = prod['name'].toString();
+        final ticker = prod['ticker_code'].toString();
+        
+        // Sum ownership from both possible symbols
+        final qty = (ownership[name] ?? 0.0) + (ownership[ticker] ?? 0.0);
+        
+        if (qty > 0) {
+          final healthScore = prod['health_score'] as int? ?? 100;
+          newRecords.add({
+            'nama': name,
+            'status': healthScore >= 90 ? 'Sehat' : 'Perawatan',
+            'score': healthScore,
+            'quantity': qty.toInt(),
+            'next': DateTime.now().add(const Duration(days: 14)), // Simulated next vaccine
+          });
         }
-      });
-      await _save();
+      }
+
+      if (mounted) {
+        setState(() {
+          _records = newRecords;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -136,118 +105,134 @@ class _KesehatanPageState extends State<KesehatanPage> {
           style: TextStyle(fontWeight: FontWeight.w500, fontSize: 20),
         ),
         elevation: 0,
+        actions: [
+          IconButton(
+            onPressed: _load,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
-                    gradient: LinearGradient(
-                      colors: [Colors.red[400]!, Colors.red[600]!],
-                    ),
                   ),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.medical_services,
-                        color: Colors.white,
-                        size: 60,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: LinearGradient(
+                        colors: [Colors.red[400]!, Colors.red[600]!],
                       ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Monitoring Kesehatan',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(
+                          Icons.medical_services,
                           color: Colors.white,
+                          size: 60,
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Sehat: $sehatCount • Perawatan/Sakit: $perawatanCount',
-                        style: const TextStyle(fontSize: 16, color: Colors.white70),
-                      ),
-                    ],
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Monitoring Kesehatan',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (_loading)
+                          const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(color: Colors.white70, strokeWidth: 2))
+                        else
+                          Text(
+                            'Sehat: $sehatCount Kategori • Perawatan: $perawatanCount Kategori',
+                            style: const TextStyle(fontSize: 16, color: Colors.white70),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _records.length,
-                itemBuilder: (context, index) {
-                  final r = _records[index];
-                  final overdue = r['next'] != null && (r['next'] as DateTime).isBefore(DateTime.now());
-                  return Card(
-                    elevation: 2,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 16),
+                if (_loading)
+                  const Center(child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: CircularProgressIndicator(),
+                  ))
+                else if (_error != null)
+                  Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)))
+                else if (_records.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 24.0),
+                    child: Center(
+                      child: Text('Belum ada sapi di portofolio Anda.', style: TextStyle(color: Colors.grey[700])),
                     ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.all(16),
-                      leading: CircleAvatar(
-                        backgroundColor: r['status'] == 'Sehat' ? Colors.green[100] : Colors.orange[100],
-                        child: Icon(
-                          overdue ? Icons.warning_amber : Icons.health_and_safety,
-                          color: overdue ? Colors.orange[700] : (r['status'] == 'Sehat' ? Colors.green[700] : Colors.orange[700]),
+                  )
+                else
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _records.length,
+                    itemBuilder: (context, index) {
+                      final r = _records[index];
+                      final status = r['status'] as String;
+                      final score = r['score'] as int;
+                      
+                      return Card(
+                        elevation: 2,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      ),
-                      title: Text(r['nama'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Status: ${r['status']}'),
-                          Text('Vaksin berikutnya: ' + (
-                              r['next'] == null ? '-' : '${(r['next'] as DateTime).day}/${(r['next'] as DateTime).month}/${(r['next'] as DateTime).year}'
-                          )),
-                        ],
-                      ),
-                      trailing: PopupMenuButton<String>(
-                        onSelected: (v) async {
-                          if (v == 'edit') {
-                            await _addOrEdit(current: r);
-                          } else if (v == 'delete') {
-                            setState(() => _records.removeAt(index));
-                            await _save();
-                          }
-                        },
-                        itemBuilder: (ctx) => const [
-                          PopupMenuItem(value: 'edit', child: Text('Edit')),
-                          PopupMenuItem(value: 'delete', child: Text('Hapus')),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-              if (_records.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 24.0),
-                  child: Center(
-                    child: Text('Belum ada catatan. Tekan + untuk menambah.', style: TextStyle(color: Colors.grey[700])),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.all(16),
+                          leading: CircleAvatar(
+                            backgroundColor: status == 'Sehat' ? Colors.green[100] : Colors.orange[100],
+                            child: Icon(
+                              status == 'Sehat' ? Icons.health_and_safety : Icons.warning_amber,
+                              color: status == 'Sehat' ? Colors.green[700] : Colors.orange[700],
+                            ),
+                          ),
+                          title: Text(
+                            '${r['nama']} (${r['quantity']} ekor)', 
+                            style: const TextStyle(fontWeight: FontWeight.bold)
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 4),
+                              Text('Status: $status (Score: $score)'),
+                              const SizedBox(height: 2),
+                              Text('Vaksin berikutnya: ' + (
+                                  r['next'] == null ? '-' : '${(r['next'] as DateTime).day}/${(r['next'] as DateTime).month}/${(r['next'] as DateTime).year}'
+                              )),
+                            ],
+                          ),
+                          trailing: Icon(
+                            Icons.chevron_right,
+                            color: Colors.grey[400],
+                          ),
+                          onTap: () {
+                            // Detail kesehatan per jenis
+                          },
+                        ),
+                      );
+                    },
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _addOrEdit(),
-        backgroundColor: Colors.red[400],
-        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }

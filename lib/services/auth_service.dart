@@ -16,6 +16,7 @@ class AuthService {
   static const String _keyLoginTimestamp = 'login_timestamp';
   static const String _keyToken = 'auth_token';
   static const String _keyRole = 'user_role';
+  static const String _keyProfilePicture = 'profile_picture';
 
   // Singleton pattern - hanya ada 1 instance
   static final AuthService _instance = AuthService._internal();
@@ -49,7 +50,6 @@ class AuthService {
     return isLoggedIn;
   }
 
-  /// Login ke backend dan simpan token + profil dasar
   Future<void> loginWithBackend(String email, String password,
       {bool rememberMe = false}) async {
     final client = ApiClient();
@@ -74,12 +74,16 @@ class AuthService {
     await prefs.setBool(_keyRememberMe, rememberMe);
     await prefs.setString(_keyLoginMethod, 'email');
     await prefs.setString(_keyLoginTimestamp, DateTime.now().toIso8601String());
+    
+    if (data['profile_picture'] != null) {
+      await prefs.setString(_keyProfilePicture, data['profile_picture'].toString());
+    }
+    
     if (data['token'] != null) {
       await prefs.setString(_keyToken, data['token']);
     }
   }
 
-  /// Register ke backend kemudian auto-login
   Future<void> registerWithBackend({
     required String displayName,
     required String email,
@@ -110,6 +114,11 @@ class AuthService {
     await prefs.setBool(_keyRememberMe, true);
     await prefs.setString(_keyLoginMethod, 'email');
     await prefs.setString(_keyLoginTimestamp, DateTime.now().toIso8601String());
+    
+    if (data['profile_picture'] != null) {
+      await prefs.setString(_keyProfilePicture, data['profile_picture'].toString());
+    }
+    
     if (data['token'] != null) {
       await prefs.setString(_keyToken, data['token']);
     }
@@ -216,6 +225,45 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyUserName, name);
     await prefs.setString(_keyUserEmail, email);
+    
+    // Sync with backend
+    final client = ApiClient();
+    final token = await getToken();
+    final uri = client.uri('/auth/me');
+    await http.patch(
+      uri,
+      headers: client.jsonHeaders(token: token),
+      body: jsonEncode({
+        'display_name': name,
+        'email': email,
+      }),
+    );
+  }
+
+  /// Update foto profil (base64)
+  Future<void> updateProfilePicture(String base64Image) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyProfilePicture, base64Image);
+    
+    // Sync with backend
+    final client = ApiClient();
+    final token = await getToken();
+    final uri = client.uri('/auth/me');
+    final res = await http.patch(
+      uri,
+      headers: client.jsonHeaders(token: token),
+      body: jsonEncode({'profile_picture': base64Image}),
+    );
+    
+    if (res.statusCode != 200) {
+      throw Exception('Gagal menyimpan foto ke server');
+    }
+  }
+
+  /// Ambil foto profil (base64)
+  Future<String?> getProfilePicture() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyProfilePicture);
   }
 
   /// Update remember me setting
@@ -262,6 +310,7 @@ class AuthService {
     await prefs.remove(_keyLoginMethod);
     await prefs.remove(_keyLoginTimestamp);
     await prefs.remove(_keyToken);
+    await prefs.remove(_keyProfilePicture);
     // Keep remember me preference
   }
 

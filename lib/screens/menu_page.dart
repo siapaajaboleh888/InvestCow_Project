@@ -18,9 +18,16 @@ class MenuPage extends StatelessWidget {
         backgroundColor: Colors.cyan[400],
         foregroundColor: Colors.white,
         elevation: 0,
+        leading: Tooltip(
+          message: 'Back',
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
         title: const Text(
           'Menu InvestCow',
-          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 20),
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
         ),
         centerTitle: false,
       ),

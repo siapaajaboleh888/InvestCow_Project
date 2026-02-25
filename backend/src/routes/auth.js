@@ -35,7 +35,7 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body || {};
     if (!email || !password) return res.status(400).json({ message: 'Missing fields' });
     const [rows] = await pool.query(
-      'SELECT id, password_hash, display_name, role FROM users WHERE email = :email',
+      'SELECT id, password_hash, display_name, role, profile_picture FROM users WHERE email = :email',
       { email }
     );
     if (!rows.length) return res.status(401).json({ message: 'Invalid credentials' });
@@ -43,7 +43,15 @@ router.post('/login', async (req, res) => {
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ message: 'Invalid credentials' });
     const token = jwt.sign({}, process.env.JWT_SECRET, { subject: String(user.id), expiresIn: '7d' });
-    return res.json({ id: user.id, email, display_name: user.display_name, role: user.role || 'user', balance: user.balance || 0, token });
+    return res.json({
+      id: user.id,
+      email,
+      display_name: user.display_name,
+      role: user.role || 'user',
+      balance: user.balance || 0,
+      profile_picture: user.profile_picture,
+      token
+    });
   } catch (e) {
     console.error('login error:', e);
     return res.status(500).json({ message: 'Server error' });
@@ -54,7 +62,7 @@ router.post('/login', async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
-    const [rows] = await pool.query('SELECT id, email, display_name, role, balance FROM users WHERE id = :id', { id: userId });
+    const [rows] = await pool.query('SELECT id, email, display_name, role, balance, profile_picture FROM users WHERE id = :id', { id: userId });
     if (!rows.length) return res.status(404).json({ message: 'User not found' });
     return res.json(rows[0]);
   } catch (e) {
@@ -116,6 +124,41 @@ router.delete('/me', authMiddleware, async (req, res) => {
     await pool.query('DELETE FROM users WHERE id = :id', { id: userId });
     return res.status(204).send();
   } catch (e) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update profile
+router.patch('/me', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { display_name, email, profile_picture } = req.body || {};
+
+    // We only update fields that are provided
+    const fields = [];
+    const params = { id: userId };
+
+    if (display_name !== undefined) {
+      fields.push('display_name = :display_name');
+      params.display_name = display_name;
+    }
+    if (email !== undefined) {
+      fields.push('email = :email');
+      params.email = email;
+    }
+    if (profile_picture !== undefined) {
+      fields.push('profile_picture = :profile_picture');
+      params.profile_picture = profile_picture;
+    }
+
+    if (fields.length === 0) return res.status(400).json({ message: 'No fields to update' });
+
+    const query = `UPDATE users SET ${fields.join(', ')} WHERE id = :id`;
+    await pool.query(query, params);
+
+    return res.json({ message: 'Profile updated' });
+  } catch (e) {
+    console.error('Update profile error:', e);
     return res.status(500).json({ message: 'Server error' });
   }
 });
