@@ -26,8 +26,9 @@ class _HomePageState extends State<HomePage> {
   Timer? _refreshTimer;
   String _activeTab = 'Ikhtisar';
   
-  int _totalOwnedCows = 0;
+  double _totalOwnedCows = 0.0;
   double _totalInvestmentValue = 0.0;
+  List<Map<String, dynamic>> _portfolioHoldings = [];
 
   final List<Map<String, dynamic>> _cowPrices = [
     {
@@ -83,26 +84,37 @@ class _HomePageState extends State<HomePage> {
       
       if (res.statusCode == 200) {
         final List<dynamic> data = jsonDecode(res.body);
-        int total = 0;
+        double totalUnits = 0.0;
         double value = 0.0;
         
+        final List<Map<String, dynamic>> holdings = [];
+        
         for (var item in data) {
-          final qty = (double.tryParse(item['total_quantity'].toString()) ?? 0.0).toInt();
-          total += qty;
+          final qty = double.tryParse(item['total_quantity'].toString()) ?? 0.0;
+          totalUnits += qty;
           
-          // Estimate value based on current simulated price if possible
           final ticker = item['symbol'].toString();
           final priceData = _cowPrices.firstWhere(
             (p) => p['name'].toString().contains(ticker) || ticker.contains(p['name'].toString()),
-            orElse: () => {'price': 20000000}, // Default 20M fallback
+            orElse: () => {'price': 20000000},
           );
-          value += qty * (priceData['price'] as int);
+          
+          final currentVal = qty * (priceData['price'] as int);
+          value += currentVal;
+
+          holdings.add({
+            'symbol': ticker,
+            'quantity': qty,
+            'currentValue': currentVal,
+            'isWhole': qty >= 1.0,
+          });
         }
 
         if (mounted) {
           setState(() {
-            _totalOwnedCows = total;
+            _totalOwnedCows = totalUnits;
             _totalInvestmentValue = value;
+            _portfolioHoldings = holdings;
           });
         }
       }
@@ -113,12 +125,17 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _fetchNews() async {
     try {
-      final res = await http.get(_apiClient.uri('/news'));
+      final token = await _authService.getToken();
+      final res = await http.get(_apiClient.uri('/news'), headers: _apiClient.jsonHeaders(token: token));
       if (res.statusCode == 200) {
         final List<dynamic> data = jsonDecode(res.body);
         if (mounted) {
           setState(() {
-            _newsItems = data.cast<Map<String, dynamic>>();
+            // Filter out ROI analysis news from main feed as requested
+            _newsItems = data
+                .cast<Map<String, dynamic>>()
+                .where((news) => !news['title'].toString().contains('Analisis ROI'))
+                .toList();
             _isLoadingNews = false;
           });
         }
@@ -341,7 +358,7 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     Expanded(child: _buildInfoCard('Status Pasar', 'Stabil', Icons.analytics_outlined, Colors.green)),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildInfoCard('Total Unit', '$_totalOwnedCows Ekor', Icons.pets_outlined, Colors.blue)),
+                    Expanded(child: _buildInfoCard('Total Unit', '${_totalOwnedCows % 1 == 0 ? _totalOwnedCows.toInt() : _totalOwnedCows.toStringAsFixed(2)} Ekor', Icons.pets_outlined, Colors.blue)),
                   ],
                 ),
               ),
@@ -592,18 +609,34 @@ class _HomePageState extends State<HomePage> {
                       icon: Icons.trending_up,
                       color: Colors.green,
                       onTap: () {
-                        final estProfit = _totalOwnedCows * 4250000; // Est profit per cow/year
+                        // Generate dynamic breakdown content
+                        String breakdown = 'Detail Kepemilikan Anda:\n';
+                        for (var h in _portfolioHoldings) {
+                          String qtyStr = h['quantity'] % 1 == 0 ? h['quantity'].toInt().toString() : h['quantity'].toStringAsFixed(2);
+                          String ratio = h['isWhole'] ? '90/10' : '70/30';
+                          breakdown += '• ${h['symbol']}: $qtyStr unit ($ratio)\n';
+                        }
+                        
+                        final estProfit = _totalOwnedCows * 4250000;
+                        
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => NewsDetailPage(news: {
-                              'title': 'Analisis Proyeksi ROI Portofolio',
+                              'title': 'Analisis Proyeksi ROI Terpersonalisasi',
                               'source': 'Analis InvestCow',
                               'logo': 'A',
                               'logoColor': '#4CAF50',
                               'date': 'Target 2026',
                               'time': 'Proyeksi',
-                              'content': 'Berdasarkan kepemilikan Anda sebanyak $_totalOwnedCows ekor:\n\n• Estimasi Capital Gain: Rp ${_formatCurrency(estProfit)}\n• Proyeksi ROI Tahunan: 18.5% - 22.1%\n• Estimasi Harga Jual Target: Rp ${_formatCurrency((_totalInvestmentValue * 1.2).toInt())}\n\n*Proyeksi ini dihitung berdasarkan rata-rata kenaikan harga daging nasional dan performa harian sapi (ADG) di kandang mitra kami.',
+                              'content': 'Berdasarkan portofolio aktif Anda:\n\n$breakdown\n'
+                                  '• Total Estimasi Capital Gain: Rp ${_formatCurrency(estProfit.toInt())}\n'
+                                  '• Proyeksi ROI Tahunan: 18.5% - 22.1%\n'
+                                  '• Estimasi Harga Jual Target: Rp ${_formatCurrency((_totalInvestmentValue * 1.2).toInt())}\n\n'
+                                  'Aturan Kepemilikan Unit (Contoh 1.73 Unit):\n'
+                                  'Jika Anda membeli atau menjual 1.73 unit, maka SELURUH jumlah tersebut (termasuk desimalnya) dianggap sebagai Kepemilikan Utuh. '
+                                  'Artinya, rasio bagi hasil yang berlaku adalah 90% Investor / 10% Peternak untuk total 1.73 unit tersebut.\n\n'
+                                  'Bonus Ratio 90/10 berlaku otomatis selama jumlah transaksi Anda ≥ 1.0 unit.',
                             }),
                           ),
                         );
@@ -629,7 +662,7 @@ class _HomePageState extends State<HomePage> {
                               'logoColor': '#2196F3',
                               'date': '2026',
                               'time': 'Edukasi',
-                              'content': '...',
+                              'content': 'Peternakan sapi modern tidak hanya sekadar memberi makan, tetapi melibatkan manajemen presisi untuk hasil optimal.\n\n1. Pemilihan Bibit (Breeding): Memilih sapi dengan genetik unggul (seperti Brahman, Limousin, atau Simental) sangat berpengaruh pada Average Daily Gain (ADG).\n\n2. Manajemen Kandang: Sirkulasi udara (ventilation) dan kebersihan kandang mencegah stres pada sapi yang dapat menurunkan nafsu makan dan menghambat pertumbuhan.\n\n3. Nutrisi Seimbang: Perpaduan antara serat (rumput/silase) dan konsentrat (nutrisi padat) sangat krusial. InvestCow menggunakan formula khusus Dokter Hewan.\n\n4. Monitoring Digital: Penggunaan CCTV dan sensor IoT membantu memantau kesehatan sapi secara real-time tanpa mengganggu aktivitas alami mereka di kandang.',
                             }),
                           ),
                         );
@@ -651,7 +684,7 @@ class _HomePageState extends State<HomePage> {
                               'logoColor': '#F44336',
                               'date': '2026',
                               'time': 'Edukasi',
-                              'content': '...',
+                              'content': 'Harga sapi di pasar modal peternakan dipengaruhi oleh berbagai variabel dinamis yang saling terkait:\n\n1. Berat Badan & Kondisi Fisik: Bobot akhir adalah faktor utama. Sapi yang masuk fase "fattening" sempurna dengan konformasi otot yang baik memiliki nilai jual jauh lebih tinggi.\n\n2. Hari Besar Keagamaan: Menjelang Hari Raya Idul Adha dan Idul Fitri, harga sapi dapat melonjak signifikan (20-40%) karena lonjakan permintaan nasional yang masif.\n\n3. Biaya Input Produksi: Kenaikan harga jagung, kedelai, atau logistik pengiriman antar pulau berpengaruh pada harga dasar sapi di pasar lokal.\n\n4. Tren Sentimen Pasar: Ketersediaan stok di feedlot besar dan kebijakan impor sapi bakalan juga turut menentukan stabilitas harga di tingkat ritel dan industri daging.',
                             }),
                           ),
                         );
@@ -857,7 +890,7 @@ class _HomePageState extends State<HomePage> {
                 Text(item['name'], style: const TextStyle(fontSize: 12, color: Colors.grey)),
                 const SizedBox(height: 4),
                 Text(
-                  '${_formatCurrency(item['price'])} IDR',
+                  '${_formatCurrency((item['price'] as num).toInt())} IDR',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 const Spacer(),

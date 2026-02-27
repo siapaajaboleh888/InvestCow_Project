@@ -8,7 +8,7 @@ class DetailKandangPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int occ = barn['occupied'] ?? 0;
+    final double occ = double.tryParse(barn['occupied'].toString()) ?? 0.0;
     final double price = double.tryParse(barn['price'].toString()) ?? 0;
     final double totalValue = occ * price;
     final String formattedValue = totalValue.toStringAsFixed(0).replaceAllMapped(
@@ -74,7 +74,7 @@ class DetailKandangPage extends StatelessWidget {
                         child: Column(
                           children: [
                             Text(
-                              '$occ',
+                              occ % 1 == 0 ? occ.toInt().toString() : occ.toStringAsFixed(2),
                               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green),
                             ),
                             const Text('Ekor', style: TextStyle(fontSize: 12)),

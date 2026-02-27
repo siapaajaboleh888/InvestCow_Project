@@ -3,6 +3,9 @@ const router = express.Router();
 const Parser = require('rss-parser');
 const parser = new Parser();
 
+const jwt = require('jsonwebtoken');
+const { pool } = require('../db');
+
 // Konfigurasi Sumber Berita Real-time
 const FEEDS = [
     { name: 'CNBC Indonesia', url: 'https://www.cnbcindonesia.com/news/rss', logo: 'C', color: '#004785', urlLabel: 'cnbcindonesia.com' },
@@ -28,6 +31,21 @@ const CACHE_DURATION = 30 * 60 * 1000; // 30 Menit
 router.get('/', async (req, res) => {
     try {
         const now = Date.now();
+
+        // Check for optional token to personalize news
+        const authHeader = req.headers['authorization'] || '';
+        const tokenToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+        let userId = null;
+        if (tokenToken) {
+            try {
+                const payload = jwt.verify(tokenToken, process.env.JWT_SECRET);
+                userId = Number(payload.sub);
+            } catch (e) {
+                // Ignore invalid tokens for news feed
+                console.log('Optional auth failed for news, serving public list.');
+            }
+        }
+
 
         // Gunakan cache jika masih valid
         if (newsCache.data && (now - newsCache.lastFetched < CACHE_DURATION)) {
@@ -115,13 +133,95 @@ router.get('/', async (req, res) => {
             });
         }
 
-        // Update cache
-        newsCache = {
-            data: formattedNews,
-            lastFetched: now
-        };
+        // Prepare response data
+        let finalNews = [...formattedNews];
 
-        res.json(formattedNews);
+        // Add Personalized ROI Analysis if user is logged in
+        if (userId) {
+            try {
+                const [holdings] = await pool.query(`
+                    SELECT t.symbol, 
+                           SUM(CASE WHEN LOWER(t.type) = 'buy' THEN t.quantity ELSE -t.quantity END) as total_quantity,
+                           SUM(CASE WHEN LOWER(t.type) = 'buy' THEN t.quantity * t.price ELSE -(t.quantity * t.price) END) as total_investment
+                    FROM transactions t
+                    JOIN portfolios p ON t.portfolio_id = p.id
+                    WHERE p.user_id = :uid
+                    GROUP BY t.symbol
+                `, { uid: userId });
+
+                // Filter owned cows
+                const activeCows = holdings.filter(h => Number(h.total_quantity) > 0.01);
+
+                // Urutkan berdasarkan investasi terbesar
+                activeCows.sort((a, b) => Number(b.total_investment) - Number(a.total_investment));
+
+                for (let i = 0; i < activeCows.length; i++) {
+                    const activePort = activeCows[i];
+                    const qty = Number(activePort.total_quantity);
+                    const investment = Number(activePort.total_investment);
+
+                    // 2. Ambil target price & ratio dari produk
+                    const [prod] = await pool.query('SELECT target_price, investor_share_ratio, price, name FROM products WHERE ticker_code = :symbol OR name = :symbol LIMIT 1', { symbol: activePort.symbol });
+
+                    if (prod.length > 0) {
+                        const productName = prod[0].name || activePort.symbol;
+                        const targetPricePerUnit = Number(prod[0].target_price) || (Number(prod[0].price) * 1.3);
+                        // LOGIKA UI ROI:
+                        // Jika >= 1 ekor, gunakan 90%
+                        // Jika < 1 ekor, gunakan ratio dari DB (default 70%)
+                        let ratio = Number(prod[0].investor_share_ratio) || 0.7;
+                        let schemeName = "Skema Investasi";
+
+                        if (qty >= 0.99) { // Using 0.99 for whole cow to avoid float issues
+                            ratio = 0.90; // Fixed 90% for whole cow
+                            schemeName = "Skema Kepemilikan Utuh";
+                        }
+
+                        const totalTargetValue = qty * targetPricePerUnit;
+                        const grossProfit = totalTargetValue - investment;
+
+                        const netProfitInvestor = grossProfit > 0 ? (grossProfit * ratio) : grossProfit;
+                        const roiPercent = investment > 0 ? ((netProfitInvestor / investment) * 100) : 0;
+
+                        const formatIDR = (num) => 'Rp ' + Math.round(num).toLocaleString('id-ID');
+
+                        const today = new Date();
+                        const dynamicTime = today.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace(/:/g, '.');
+                        const dynamicDate = today.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+
+                        // Sisipkan di paling atas dengan ID unik
+                        finalNews.unshift({
+                            id: 1000 + i,
+                            source: 'Analis InvestCow',
+                            sourceUrl: 'investcow.id',
+                            time: dynamicTime,
+                            date: dynamicDate,
+                            logo: 'A',
+                            logoColor: qty >= 0.99 ? '#FFD700' : '#00C853', // Gold color for whole cow owner
+                            title: `Analisis ROI ${productName} (${schemeName})`,
+                            content: `Berdasarkan kepemilikan Anda sebanyak ${qty.toFixed(0)} ekor ${productName}:\n\n` +
+                                `• Estimasi Capital Gain: ${formatIDR(netProfitInvestor)}\n` +
+                                `• Proyeksi ROI Tahunan: ${roiPercent.toFixed(1)}% - ${(roiPercent + 4).toFixed(1)}%\n` +
+                                `• Estimasi Harga Jual Target: ${formatIDR(totalTargetValue)}\n\n` +
+                                `*Dihitung berdasarkan ${schemeName} (Profit Share ${Math.round(ratio * 100)}% Investor / ${Math.round((1 - ratio) * 100)}% Peternak).`,
+                            url: 'https://investcow.id/analysis/roi'
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error('Error news personalization:', err);
+            }
+        }
+
+        // Update cache (ONLY with non-personalized news)
+        if (now - newsCache.lastFetched >= CACHE_DURATION || !newsCache.data) {
+            newsCache = {
+                data: formattedNews,
+                lastFetched: now
+            };
+        }
+
+        res.json(finalNews);
     } catch (error) {
         console.error('Error News Route:', error);
         // Jika error tapi ada cache lama, tampilkan cache lama daripada error 500

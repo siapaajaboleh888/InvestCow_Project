@@ -22,8 +22,8 @@ class _KandangPageState extends State<KandangPage> {
   String _search = '';
   String _occFilter = 'Semua';
 
-  int get totalCows => _barns.fold(0, (p, e) => p + (e['occupied'] as int));
-  int get totalBarns => _barns.where((e) => (e['occupied'] as int) > 0).length;
+  double get totalCows => _barns.fold(0.0, (p, e) => p + (double.tryParse(e['occupied'].toString()) ?? 0.0));
+  int get totalBarns => _barns.where((e) => (double.tryParse(e['occupied'].toString()) ?? 0.0) >= 0.01).length;
 
   @override
   void initState() {
@@ -74,7 +74,7 @@ class _KandangPageState extends State<KandangPage> {
         return {
           'name': name,
           'capacity': 100, // Management capacity for visual reference
-          'occupied': occupied.toInt(),
+          'occupied': occupied,
           'ticker': ticker,
           'price': p['price'],
           'weight': p['current_weight'],
@@ -150,7 +150,7 @@ class _KandangPageState extends State<KandangPage> {
                         const Text('Total Sapi Dimiliki', style: TextStyle(fontSize: 20, color: Colors.white70)),
                         const SizedBox(height: 8),
                         Text(
-                          '$totalCows',
+                          totalCows % 1 == 0 ? totalCows.toInt().toString() : totalCows.toStringAsFixed(2),
                           style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                         const SizedBox(height: 8),
@@ -190,7 +190,7 @@ class _KandangPageState extends State<KandangPage> {
                   ))
                 else if (_error != null)
                   Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)))
-                else if (_barns.where((b) => (b['occupied'] as int) > 0).isEmpty)
+                else if (_barns.where((b) => (double.tryParse(b['occupied'].toString()) ?? 0.0) >= 0.01).isEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 24.0),
                     child: Center(
@@ -201,23 +201,21 @@ class _KandangPageState extends State<KandangPage> {
                   ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _barns
-                        .where((b) {
-                          final name = (b['name'] as String).toLowerCase();
-                          final owned = (b['occupied'] as int) > 0;
-                          return owned && (_search.isEmpty || name.contains(_search));
-                        })
-                        .length,
+                    itemCount: _barns.where((b) {
+                      final name = (b['name'] as String).toLowerCase();
+                      final occValue = double.tryParse(b['occupied'].toString()) ?? 0.0;
+                      return occValue >= 0.01 && (_search.isEmpty || name.contains(_search));
+                    }).length,
                     itemBuilder: (context, index) {
                       final filtered = _barns.where((b) {
                         final name = (b['name'] as String).toLowerCase();
-                        final owned = (b['occupied'] as int) > 0;
-                        return owned && (_search.isEmpty || name.contains(_search));
+                        final occValue = double.tryParse(b['occupied'].toString()) ?? 0.0;
+                        return occValue >= 0.01 && (_search.isEmpty || name.contains(_search));
                       }).toList();
                       
                       final b = filtered[index];
                       final cap = b['capacity'] as int;
-                      final occ = b['occupied'] as int;
+                      final occ = double.tryParse(b['occupied'].toString()) ?? 0.0;
                       final ratio = cap == 0 ? 0.0 : (occ / cap).clamp(0.0, 1.0);
                       
                       return Card(
@@ -240,7 +238,7 @@ class _KandangPageState extends State<KandangPage> {
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Kepemilikan: $occ ekor'),
+                              Text('Kepemilikan: ${occ % 1 == 0 ? occ.toInt() : occ.toStringAsFixed(2)} ekor'),
                               const SizedBox(height: 4),
                               LinearProgressIndicator(
                                 value: ratio > 0 ? ratio : 0.02, // Small sliver if 0 but for UI

@@ -10,50 +10,60 @@ class GlosariumPage extends StatefulWidget {
 class _GlosariumPageState extends State<GlosariumPage> {
   final TextEditingController _searchController = TextEditingController();
   
-  final List<Map<String, String>> _allTerms = [
+  final List<Map<String, dynamic>> _allTerms = [
     {
       'term': 'Ikhtisar',
       'desc': 'Ringkasan atau gambaran umum dari seluruh portofolio dan aktivitas investasi Anda secara cepat.',
-      'icon': '📊'
+      'icon': Icons.summarize_outlined
     },
     {
       'term': 'Total Est. Nilai Investasi',
       'desc': 'Estimasi nilai seluruh aset (sapi) yang Anda miliki jika diuangkan berdasarkan harga pasar saat ini.',
-      'icon': '💰'
+      'icon': Icons.account_balance_wallet_outlined
+    },
+    {
+      'term': 'ROI (Return on Investment)',
+      'desc': 'Rasio keuntungan atau kerugian yang dihasilkan dari investasi relatif terhadap jumlah modal yang diinvestasikan.',
+      'icon': Icons.pie_chart_outline
     },
     {
       'term': 'ADG (Average Daily Gain)',
       'desc': 'Rata-rata pertambahan berat badan harian pada sapi dalam periode tertentu (biasanya gram/hari).',
-      'icon': '⚖️'
+      'icon': Icons.monitor_weight_outlined
     },
     {
       'term': 'Fattening (Penggemukan)',
       'desc': 'Program pemberian pakan intensif untuk meningkatkan bobot sapi secara cepat sebelum dipasarkan.',
-      'icon': '🐄'
+      'icon': Icons.trending_up_outlined
     },
     {
       'term': 'Ticker Code',
       'desc': 'Kode unik identitas jenis sapi di pasar modal InvestCow (Contoh: MD-01 untuk Sapi Madura).',
-      'icon': '🆔'
+      'icon': Icons.qr_code_outlined
     },
     {
       'term': 'Sentimen Pasar',
       'desc': 'Kondisi psikologis pasar yang mempengaruhi tren harga (Stabil, Bullish/Naik, atau Bearish/Turun).',
-      'icon': '📈'
+      'icon': Icons.psychology_outlined
     },
     {
       'term': 'Unit',
       'desc': 'Satuan kepemilikan aset di InvestCow. 1 Unit berarti kepemilikan atas 1 ekor sapi.',
-      'icon': '🐾'
+      'icon': Icons.inventory_2_outlined
     },
     {
       'term': 'Konsentrat',
       'desc': 'Pakan padat nutrisi tinggi yang digunakan untuk mempercepat pertumbuhan berat badan sapi.',
-      'icon': '🌾'
+      'icon': Icons.grass_outlined
+    },
+    {
+      'term': 'Bagi Hasil (Profit Sharing)',
+      'desc': 'Sistem distribusi keuntungan antara investor dan peternak. InvestCow menerapkan dua skema: (1) Skema Investasi: 70% Investor / 30% Peternak untuk investasi nominal. (2) Skema Kepemilikan Utuh: 90% Investor / 10% Peternak untuk pembelian sapi secara utuh (>= 1 ekor) sebagai biaya jasa pemeliharaan.',
+      'icon': Icons.handshake_outlined
     },
   ];
 
-  List<Map<String, String>> _filteredTerms = [];
+  List<Map<String, dynamic>> _filteredTerms = [];
 
   @override
   void initState() {
@@ -65,8 +75,8 @@ class _GlosariumPageState extends State<GlosariumPage> {
     setState(() {
       _filteredTerms = _allTerms
           .where((item) =>
-              item['term']!.toLowerCase().contains(query.toLowerCase()) ||
-              item['desc']!.toLowerCase().contains(query.toLowerCase()))
+              item['term']!.toString().toLowerCase().contains(query.toLowerCase()) ||
+              item['desc']!.toString().toLowerCase().contains(query.toLowerCase()))
           .toList();
     });
   }
@@ -135,17 +145,17 @@ class _GlosariumPageState extends State<GlosariumPage> {
                                 color: Colors.cyan.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Text(item['icon']!, style: const TextStyle(fontSize: 20)),
+                              child: Icon(item['icon'] as IconData, color: Colors.cyan, size: 24),
                             ),
                             title: Text(
-                              item['term']!,
+                              item['term']!.toString(),
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                             ),
                             children: [
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
                                 child: Text(
-                                  item['desc']!,
+                                  item['desc']!.toString(),
                                   style: TextStyle(color: Colors.grey[600], height: 1.5, fontSize: 14),
                                 ),
                               ),

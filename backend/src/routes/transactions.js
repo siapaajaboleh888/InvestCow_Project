@@ -152,8 +152,18 @@ router.post('/', authMiddleware, async (req, res) => {
       const totalProfit = Number(quantity) * (Number(price) - avgBuyPrice);
 
       if (totalProfit > 0) {
-        // Skema: Profit dibagikan (misal 70% Investor, 30% Peternak)
-        profitSharingAmount = totalProfit * (1 - investorRatio);
+        // --- LOGIKA ADIL INVESTCOW ---
+        // Jika Jual Sapi Utuh (Qty >= 1): Bagi hasil lebih kecil (90% Investor / 10% Peternak)
+        // Jika Investasi Nominal (Qty < 1): Bagi hasil standar (70% Investor / 30% Peternak)
+
+        let customInvestorRatio = investorRatio; // Default dari DB (70%)
+
+        if (Number(quantity) >= 1) {
+          customInvestorRatio = 0.9000; // Bonus ratio bagi pemilik sapi utuh
+          console.log(`🐄 Sapi Utuh terdeteksi. Menggunakan ratio 90/10 (Investor Share: ${customInvestorRatio})`);
+        }
+
+        profitSharingAmount = totalProfit * (1 - customInvestorRatio);
         investorNetProfit = totalProfit - profitSharingAmount;
         finalGain = (Number(quantity) * Number(price)) - profitSharingAmount;
       } else {
