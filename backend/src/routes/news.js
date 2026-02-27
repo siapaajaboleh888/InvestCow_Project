@@ -5,11 +5,11 @@ const parser = new Parser();
 
 // Konfigurasi Sumber Berita Real-time
 const FEEDS = [
-    { name: 'CNBC Indonesia', url: 'https://www.cnbcindonesia.com/investment/rss', logo: 'C', color: '#004785', urlLabel: 'cnbcindonesia.com' },
+    { name: 'CNBC Indonesia', url: 'https://www.cnbcindonesia.com/news/rss', logo: 'C', color: '#004785', urlLabel: 'cnbcindonesia.com' },
     { name: 'Detik Finance', url: 'https://finance.detik.com/rss', logo: 'D', color: '#2b3990', urlLabel: 'detik.com' },
-    { name: 'Kontan Bisnis', url: 'https://www.kontan.co.id/rss', logo: 'K', color: '#ffcc00', urlLabel: 'kontan.co.id' },
+    { name: 'Kontan Bisnis', url: 'https://www.kontan.co.id/rssbarugue/indeks/berita-bisnis', logo: 'K', color: '#ffcc00', urlLabel: 'kontan.co.id' },
     { name: 'Antara Ekonomi', url: 'https://www.antaranews.com/rss/ekonomi.xml', logo: 'A', color: '#ed1c24', urlLabel: 'antaranews.com' },
-    { name: 'Republika', url: 'https://republika.co.id/rss/ekonomi/pertanian', logo: 'R', color: '#009245', urlLabel: 'republika.co.id' }
+    { name: 'Republika', url: 'https://www.republika.co.id/rss/ekonomi/pertanian', logo: 'R', color: '#009245', urlLabel: 'republika.co.id' }
 ];
 
 const KEYWORDS = ['sapi', 'lembu', 'ternak sapi', 'daging sapi', 'bovine', 'pakan sapi', 'penggemukan sapi', 'investasi ternak', 'livestock investment'];

@@ -252,4 +252,45 @@ router.delete('/users/:id', authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
+// Admin: list health requests
+router.get('/health-requests', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT hr.*, u.display_name as user_name, u.email as user_email 
+      FROM health_requests hr
+      JOIN users u ON hr.user_id = u.id
+      ORDER BY hr.created_at DESC
+    `);
+    return res.json(rows);
+  } catch (e) {
+    console.error('admin get health requests error', e);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: update health request status
+router.patch('/health-requests/:id', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, admin_note, handover_date } = req.body || {};
+
+    // Format date for MySQL DATETIME (convert T to space and remove Z/milliseconds)
+    const formattedDate = handover_date ? handover_date.replace('T', ' ').substring(0, 19) : null;
+
+    const [result] = await pool.query(
+      'UPDATE health_requests SET status = :status, admin_note = :admin_note, handover_date = :handover_date WHERE id = :id',
+      { status, admin_note, handover_date: formattedDate, id }
+    );
+
+    if (!result.affectedRows) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    return res.json({ message: 'Request updated successfully' });
+  } catch (e) {
+    console.error('admin update health request error', e);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

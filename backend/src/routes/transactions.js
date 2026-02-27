@@ -167,8 +167,8 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 
     const [result] = await connection.query(
-      `INSERT INTO transactions (user_id, portfolio_id, type, symbol, quantity, price, occurred_at, note, profit_sharing_amount, investor_net_profit)
-       VALUES (:user_id, :portfolio_id, :type, :symbol, :quantity, :price, :occurred_at, :note, :psa, :inp)`,
+      `INSERT INTO transactions (user_id, portfolio_id, type, symbol, quantity, price, occurred_at, note, profit_sharing_amount, investor_net_profit, amount)
+       VALUES (:user_id, :portfolio_id, :type, :symbol, :quantity, :price, :occurred_at, :note, :psa, :inp, :amount)`,
       {
         user_id: userId,
         portfolio_id,
@@ -179,7 +179,8 @@ router.post('/', authMiddleware, async (req, res) => {
         occurred_at,
         note: note || (type === 'sell' && profitSharingAmount > 0 ? `Bagi hasil dipotong Rp${profitSharingAmount.toLocaleString('id-ID')}` : null),
         psa: profitSharingAmount,
-        inp: investorNetProfit
+        inp: investorNetProfit,
+        amount: type === 'buy' ? totalCost : finalGain
       }
     );
 

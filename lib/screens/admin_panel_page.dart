@@ -20,7 +20,7 @@ class _AdminPanelPageState extends State<AdminPanelPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -39,6 +39,7 @@ class _AdminPanelPageState extends State<AdminPanelPage>
           tabs: const [
             Tab(text: 'Produk'),
             Tab(text: 'User'),
+            Tab(text: 'Penanganan'),
           ],
         ),
       ),
@@ -47,6 +48,7 @@ class _AdminPanelPageState extends State<AdminPanelPage>
         children: [
           const _AdminProductsTab(),
           const _AdminUsersTab(),
+          const _AdminHealthTab(),
         ],
       ),
     );
@@ -629,6 +631,190 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
           );
         },
       ),
+    );
+  }
+}
+class _AdminHealthTab extends StatefulWidget {
+  const _AdminHealthTab({super.key});
+
+  @override
+  State<_AdminHealthTab> createState() => _AdminHealthTabState();
+}
+
+class _AdminHealthTabState extends State<_AdminHealthTab> {
+  final _authService = AuthService();
+  final _client = ApiClient();
+
+  bool _loading = true;
+  String? _error;
+  List<Map<String, dynamic>> _requests = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRequests();
+  }
+
+  Future<void> _loadRequests() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final token = await _authService.getToken();
+      final uri = _client.uri('/admin/health-requests');
+      final res = await http.get(uri, headers: _client.jsonHeaders(token: token));
+      if (res.statusCode != 200) {
+        throw Exception('Gagal memuat permintaan (${res.statusCode})');
+      }
+      final data = jsonDecode(res.body) as List;
+      setState(() {
+        _requests = data.cast<Map<String, dynamic>>();
+      });
+    } catch (e) {
+      debugPrint('Load health error: $e');
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _updateRequest(int id, String status, {String? note, DateTime? handover}) async {
+    try {
+      final token = await _authService.getToken();
+      final uri = _client.uri('/admin/health-requests/$id');
+      final body = {
+        'status': status,
+        'admin_note': note,
+        'handover_date': handover?.toIso8601String(),
+      };
+      final res = await http.patch(
+        uri,
+        headers: _client.jsonHeaders(token: token),
+        body: jsonEncode(body),
+      );
+
+      if (res.statusCode == 200) {
+        _loadRequests();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Permintaan diperbarui')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Update error: $e');
+    }
+  }
+
+  void _showHandleDialog(Map<String, dynamic> req) {
+    final noteController = TextEditingController(text: req['admin_note'] ?? '');
+    DateTime? selectedDate = req['handover_date'] != null 
+        ? DateTime.parse(req['handover_date'].toString()) 
+        : DateTime.now().add(const Duration(days: 1));
+    String status = req['status'];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: Text('Tangani: ${req['cow_name']}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                value: status,
+                decoration: const InputDecoration(labelText: 'Status'),
+                items: const [
+                  DropdownMenuItem(value: 'pending', child: Text('Pending')),
+                  DropdownMenuItem(value: 'confirmed', child: Text('Dikonfirmasi')),
+                  DropdownMenuItem(value: 'completed', child: Text('Selesai')),
+                  DropdownMenuItem(value: 'rejected', child: Text('Ditolak')),
+                ],
+                onChanged: (v) => setS(() => status = v!),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: noteController,
+                decoration: const InputDecoration(labelText: 'Pesan ke User (cth: Akan ditangani besok)'),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                title: const Text('Jadwal Penanganan'),
+                subtitle: Text(selectedDate == null ? 'Pilih Tanggal' : '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}'),
+                trailing: const Icon(Icons.calendar_today),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: ctx,
+                    initialDate: selectedDate ?? DateTime.now(),
+                    firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (picked != null) setS(() => selectedDate = picked);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+            ElevatedButton(
+              onPressed: () {
+                _updateRequest(req['id'], status, note: noteController.text.trim(), handover: selectedDate);
+                Navigator.pop(ctx);
+              },
+              child: const Text('Simpan'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return Center(child: Text('Error: $_error'));
+    
+    return RefreshIndicator(
+      onRefresh: _loadRequests,
+      child: _requests.isEmpty
+          ? const Center(child: Text('Belum ada permintaan penanganan.'))
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _requests.length,
+              itemBuilder: (context, index) {
+                final r = _requests[index];
+                final status = r['status'] as String;
+                Color sColor = Colors.orange;
+                if (status == 'confirmed') sColor = Colors.blue;
+                if (status == 'completed') sColor = Colors.green;
+                if (status == 'rejected') sColor = Colors.red;
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    title: Text('${r['cow_name']} - ${r['request_type']}'),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('User: ${r['user_name']} (${r['user_email']})'),
+                        Text(
+                          'Status: ${status.toUpperCase()}',
+                          style: TextStyle(color: sColor, fontWeight: FontWeight.bold),
+                        ),
+                        if (r['handover_date'] != null)
+                          Text('Jadwal: ${r['handover_date'].toString().substring(0, 10)}'),
+                      ],
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.edit_note, color: Colors.blue),
+                      onPressed: () => _showHandleDialog(r),
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }

@@ -109,16 +109,60 @@ class _TransaksiPageState extends State<TransaksiPage> with SingleTickerProvider
       itemCount: _investmentTrx.length,
       itemBuilder: (context, index) {
         final trx = _investmentTrx[index];
-        final isBuy = trx['type'] == 'buy';
-        final amount = _toDouble(trx['quantity']) * _toDouble(trx['price']);
+        final type = trx['type'].toString().toLowerCase();
+        
+        final isBuy = type == 'buy';
+        final isSell = type == 'sell';
+        final isTopUp = type == 'topup' || type == 'deposit';
+        final isWithdraw = type == 'withdraw';
+
+        String title = '';
+        bool isIncome = false;
+        IconData icon = Icons.help_outline;
+        double amount = 0;
+        String label = '';
+
+        if (isBuy) {
+          title = 'Beli ${trx['symbol']}';
+          isIncome = false;
+          icon = Icons.add_business;
+          amount = _toDouble(trx['amount']);
+          if (amount == 0) amount = _toDouble(trx['quantity']) * _toDouble(trx['price']);
+          label = '${_toDouble(trx['quantity']).toStringAsFixed(2)} Ekor';
+        } else if (isSell) {
+          title = 'Jual ${trx['symbol']}';
+          isIncome = true;
+          icon = Icons.sell;
+          amount = _toDouble(trx['amount']);
+          if (amount == 0) amount = _toDouble(trx['quantity']) * _toDouble(trx['price']);
+          label = '${_toDouble(trx['quantity']).toStringAsFixed(2)} Ekor';
+        } else if (isTopUp) {
+          title = 'Top Up Saldo';
+          isIncome = true;
+          icon = Icons.account_balance_wallet;
+          amount = _toDouble(trx['amount']);
+          label = trx['note'] ?? 'Sistem';
+        } else if (isWithdraw) {
+          title = 'Tarik Saldo';
+          isIncome = false;
+          icon = Icons.payments;
+          amount = _toDouble(trx['amount']);
+          label = 'Penarikan';
+        } else {
+          title = '${trx['type']} ${trx['symbol']}';
+          isIncome = trx['type'].toString().contains('UP') || trx['type'].toString().contains('TOP');
+          amount = _toDouble(trx['amount']);
+          if (amount == 0) amount = _toDouble(trx['quantity']) * _toDouble(trx['price']);
+          label = trx['symbol'] == 'CASH' ? 'Tunai' : '${_toDouble(trx['quantity']).toStringAsFixed(2)} Ekor';
+        }
         
         return _buildTransactionCard(
-          title: '${isBuy ? 'Beli' : 'Jual'} ${trx['symbol']}',
+          title: title,
           subtitle: _formatDateTime(trx['occurred_at']),
           amount: amount,
-          isIncome: !isBuy,
-          icon: isBuy ? Icons.add_business : Icons.sell,
-          label: '${_toDouble(trx['quantity']).toStringAsFixed(2)} Ekor',
+          isIncome: isIncome,
+          icon: icon,
+          label: label,
         );
       },
     );
