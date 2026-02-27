@@ -6,6 +6,9 @@ import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import 'menu_page.dart';
 import 'news_detail_page.dart';
+import 'riwayat_page.dart';
+import 'pasar_page.dart';
+import 'glosarium_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -154,6 +157,8 @@ class _HomePageState extends State<HomePage> {
   final Color _premiumBlack = const Color(0xFF121212);
   final Color _accentGreen = const Color(0xFF00C853);
   final Color _accentRed = const Color(0xFFFF1744);
+  final Color _softGrey = const Color(0xFFF5F5F7);
+  final Color _accentBlue = const Color(0xFF2196F3);
 
   @override
   Widget build(BuildContext context) {
@@ -167,9 +172,48 @@ class _HomePageState extends State<HomePage> {
         actions: [
           Tooltip(
             message: 'Menu InvestCow',
-            child: IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MenuPage())),
+            child: InkWell(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MenuPage())),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Center(
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF00CED1), Color(0xFF008B8B)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF008B8B).withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2.5),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.asset(
+                            'assets/images/investcow.png',
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -181,24 +225,38 @@ class _HomePageState extends State<HomePage> {
             // Tabs Section
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: ['Ikhtisar', 'Harga Sapi', 'Pakan', 'Edukasi'].map((tab) {
                   bool isSelected = tab == _activeTab;
                   return GestureDetector(
-                    onTap: () => setState(() => _activeTab = tab),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                      margin: const EdgeInsets.only(right: 8),
+                    onTap: () {
+                      setState(() => _activeTab = tab);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                      margin: const EdgeInsets.only(right: 12),
                       decoration: BoxDecoration(
-                        color: isSelected ? Colors.black : Colors.grey[200],
-                        borderRadius: BorderRadius.circular(20),
+                        color: isSelected ? Colors.black : Colors.white,
+                        borderRadius: BorderRadius.circular(25),
+                        boxShadow: [
+                          if (isSelected)
+                            BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))
+                          else
+                            BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2)),
+                        ],
+                        border: Border.all(
+                          color: isSelected ? Colors.black : Colors.grey[300]!,
+                          width: 1,
+                        ),
                       ),
                       child: Text(
                         tab,
                         style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.black,
-                          fontWeight: FontWeight.bold,
+                          color: isSelected ? Colors.white : Colors.black87,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          fontSize: 13,
                         ),
                       ),
                     ),
@@ -215,107 +273,231 @@ class _HomePageState extends State<HomePage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: _premiumBlack,
-                    borderRadius: BorderRadius.circular(20),
+                    gradient: LinearGradient(
+                      colors: [_premiumBlack, const Color(0xFF333333)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(24),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10)),
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 15,
+                        offset: const Offset(0, 8),
+                      ),
                     ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Total Est. Nilai Investasi', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                      const SizedBox(height: 8),
-                      Text(
-                        _formatCurrency(_totalInvestmentValue.toInt()),
-                        style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 1),
-                      ),
-                      const SizedBox(height: 16),
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(color: _accentGreen.withOpacity(0.2), borderRadius: BorderRadius.circular(6)),
-                            child: Text('▲ +12.5%', style: TextStyle(color: _accentGreen, fontSize: 12, fontWeight: FontWeight.bold)),
+                          const Text('Total Est. Nilai Investasi', style: TextStyle(color: Colors.white60, fontSize: 13, letterSpacing: 0.5)),
+                          IconButton(
+                            icon: Icon(Icons.account_balance_wallet_outlined, color: Colors.white.withOpacity(0.3), size: 20),
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RiwayatPage())),
+                            tooltip: 'Riwayat Transaksi',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
                           ),
-                          const SizedBox(width: 12),
-                          const Text('Bulan ini', style: TextStyle(color: Colors.white38, fontSize: 12)),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              // Dashboard Market Info
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    Expanded(child: _buildInfoCard('Pasar', 'Stabil', Icons.trending_up, Colors.green)),
-                    const SizedBox(width: 12),
-                    Expanded(child: _buildInfoCard('Unit', '$_totalOwnedCows Ekor', Icons.pets, Colors.blue)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Text('Harga Unggulan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              ),
-              const SizedBox(height: 12),
-              _buildPriceScroll(limit: 3),
-            ]
- else if (_activeTab == 'Harga Sapi') ...[
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    Icon(Icons.inventory_2_outlined, size: 18, color: Colors.blue),
-                    SizedBox(width: 8),
-                    Text('Analisis Harga Pasar Hari Ini', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Full price cards in Harga Sapi
-              _buildPriceScroll(limit: null),
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.orange[100]!)),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.tips_and_updates, color: Colors.orange),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Tip: Sapi Madura sedang mengalami lonjakan permintaan akibat persiapan stok lokal.',
-                          style: TextStyle(fontSize: 12, color: Colors.brown),
+                      const SizedBox(height: 12),
+                      Text(
+                        _formatCurrency(_totalInvestmentValue.toInt()),
+                        style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.trending_up, color: _accentGreen, size: 16),
+                            const SizedBox(width: 6),
+                            Text('+12.5%', style: TextStyle(color: _accentGreen, fontSize: 13, fontWeight: FontWeight.bold)),
+                            const SizedBox(width: 8),
+                            const Text('Bulan ini', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ],
+              const SizedBox(height: 24),
+              
+              // Dashboard Market Info
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(child: _buildInfoCard('Status Pasar', 'Stabil', Icons.analytics_outlined, Colors.green)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildInfoCard('Total Unit', '$_totalOwnedCows Ekor', Icons.pets_outlined, Colors.blue)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+              
+              // New Section Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 20,
+                      decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(2)),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Harga Unggulan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    InkWell(
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PasarPage())),
+                      child: const Text('Lihat Grafik', style: TextStyle(color: Colors.blue, fontSize: 13, fontWeight: FontWeight.w500)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildPriceScroll(limit: 3),
+              const SizedBox(height: 32),
 
-            if (_activeTab == 'Pakan')
+              // News Flow moved here (Contextual to Overview)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Aliran Berita',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    TextButton(
+                      onPressed: _fetchNews,
+                      child: Row(
+                        children: [
+                          Text(_isLoadingNews ? 'Memuat...' : 'Terbaru', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                          if (!_isLoadingNews) const Icon(Icons.refresh, size: 14, color: Colors.grey),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              if (_isLoadingNews && _newsItems.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                )
+              else if (_newsItems.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: Text('Belum ada berita baru.')),
+                )
+              else
+                ..._newsItems.map((news) => _buildNewsCard(news)).toList(),
+              
+              const SizedBox(height: 20),
+            ]
+            else if (_activeTab == 'Harga Sapi') ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.blue.withOpacity(0.1)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.inventory_2_outlined, size: 24, color: Colors.blue),
+                          SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Analisis Pasar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                Text('Pembaruan harga real-time setiap 10 detik', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text('Daftar Harga Sapi Live', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildPriceScroll(limit: null),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.orange[50], 
+                    borderRadius: BorderRadius.circular(16), 
+                    border: Border.all(color: Colors.orange[100]!)
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: Colors.orange[100], shape: BoxShape.circle),
+                        child: const Icon(Icons.lightbulb_outline, color: Colors.orange),
+                      ),
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Wawasan Cerdas', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.brown)),
+                            SizedBox(height: 4),
+                            Text(
+                              'Sapi Madura sedang mengalami lonjakan permintaan akibat persiapan stok lokal. Potensi profit lebih tinggi.',
+                              style: TextStyle(fontSize: 12, color: Colors.brown, height: 1.4),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
+            ]
+            else if (_activeTab == 'Pakan') ...[
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Informasi Pakan Nutrisi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
+                    const Text('Informasi Pakan Nutrisi', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    const Text('Optimalkan pertumbuhan aset dengan nutrisi terbaik', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                    const SizedBox(height: 24),
                     _buildKnowledgeCard(
                       'Konsentrat Protein Tinggi (A1)',
                       'Diformulasikan khusus untuk fase penggemukan (fattening) 3-4 bulan dengan ADG optimal.',
+                      icon: Icons.grass,
+                      color: Colors.orange,
                       onTap: () {
                         Navigator.push(
                           context,
@@ -336,6 +518,8 @@ class _HomePageState extends State<HomePage> {
                     _buildKnowledgeCard(
                       'Mineral Block & Vitamins',
                       'Suplemen esensial untuk menjaga imunitas, keseimbangan elektrolit, dan kekuatan tulang.',
+                      icon: Icons.health_and_safety,
+                      color: Colors.blue,
                       onTap: () {
                         Navigator.push(
                           context,
@@ -356,18 +540,35 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
-
-            if (_activeTab == 'Edukasi')
+            ]
+            else if (_activeTab == 'Edukasi') ...[
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Katalog Investasi Edu', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text('Katalog Investasi Edu', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    const Text('Pelajari cara berinvestasi dengan cerdas dan aman', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                    const SizedBox(height: 24),
+                    _buildKnowledgeCard(
+                      'Glosarium InvestCow',
+                      'Pahami istilah-istilah sulit seperti Ikhtisar, ADG, Fattening, dan lainnya.',
+                      icon: Icons.book_outlined,
+                      color: Colors.blueAccent,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const GlosariumPage()),
+                        );
+                      },
+                    ),
                     const SizedBox(height: 12),
                     _buildKnowledgeCard(
                       'Mitigasi Risiko Ternak',
                       'Strategi perlindungan aset melalui asuransi ternak dan protokol kesehatan mandiri.',
+                      icon: Icons.shield_outlined,
+                      color: Colors.teal,
                       onTap: () {
                         Navigator.push(
                           context,
@@ -388,6 +589,8 @@ class _HomePageState extends State<HomePage> {
                     _buildKnowledgeCard(
                       'Proyeksi ROI 2026',
                       'Estimasi imbal hasil berdasarkan portofolio aktif Anda saat ini.',
+                      icon: Icons.trending_up,
+                      color: Colors.green,
                       onTap: () {
                         final estProfit = _totalOwnedCows * 4250000; // Est profit per cow/year
                         Navigator.push(
@@ -406,148 +609,125 @@ class _HomePageState extends State<HomePage> {
                         );
                       },
                     ),
+                    const SizedBox(height: 12),
+                    const Divider(height: 32),
+                    const Text('Wawasan Peternakan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    _buildKnowledgeCard(
+                      'Dasar-dasar Peternakan Sapi',
+                      'Kuasai manajemen pakan, sanitasi, dan nutrisi untuk pertumbuhan optimal.',
+                      icon: Icons.school_outlined,
+                      color: Colors.blueGrey,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => NewsDetailPage(news: {
+                              'title': 'Dasar-dasar Peternakan Sapi Modern',
+                              'source': 'Akademia InvestCow',
+                              'logo': 'A',
+                              'logoColor': '#2196F3',
+                              'date': '2026',
+                              'time': 'Edukasi',
+                              'content': '...',
+                            }),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildKnowledgeCard(
+                      'Faktor Harga Sapi',
+                      'Pelajari variabel penentu harga pasar dari bobot hingga tren musiman.',
+                      icon: Icons.monetization_on_outlined,
+                      color: Colors.redAccent,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => NewsDetailPage(news: {
+                              'title': 'Analisis Faktor Penentu Harga Sapi',
+                              'source': 'Pasar InvestCow',
+                              'logo': 'P',
+                              'logoColor': '#F44336',
+                              'date': '2026',
+                              'time': 'Edukasi',
+                              'content': '...',
+                            }),
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
+            ],
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
 
-            const SizedBox(height: 30),
-
-            // News Flow Header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: InkWell(
-                onTap: _fetchNews,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Aliran Berita >',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    if (_isLoadingNews)
-                      const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                  ],
+  Widget _buildNewsCard(Map<String, dynamic> news) {
+    final colorStr = news['logoColor']?.toString() ?? '#2196F3';
+    final Color logoColor = Color(int.parse(colorStr.replaceFirst('#', '0xFF')));
+    
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => NewsDetailPage(news: news)),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _softGrey),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: logoColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(
+                  news['logo'] ?? 'N',
+                  style: TextStyle(color: logoColor, fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-
-            // News List
-            if (_isLoadingNews && _newsItems.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(32.0),
-                child: Center(child: Text('Memuat berita real-time...', style: TextStyle(color: Colors.grey))),
-              )
-            else if (_newsItems.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(32.0),
-                child: Center(child: Text('Gagal mengambil berita.', style: TextStyle(color: Colors.grey))),
-              )
-            else
-              ..._newsItems.map((news) {
-                final colorStr = news['logoColor']?.toString() ?? '#2196F3';
-                final Color logoColor = Color(int.parse(colorStr.replaceFirst('#', '0xFF')));
-                
-                return InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => NewsDetailPage(news: news),
-                      ),
-                    );
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: logoColor.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Text(
-                            news['logo'] ?? 'N',
-                            style: TextStyle(color: logoColor, fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${news['time']} · ${news['date']} · ${news['source']}',
-                                style: const TextStyle(fontSize: 11, color: Colors.grey),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                news['title'],
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, height: 1.3),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-
-            const Divider(thickness: 0.5),
-            
-            // Re-styled Existing Knowledge Section
-            Padding(
-              padding: const EdgeInsets.all(16),
+            const SizedBox(width: 16),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Wawasan Peternakan',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Row(
+                    children: [
+                      Text('${news['time']} · ${news['date']}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                      const SizedBox(width: 8),
+                      Text('· ${news['source']}', style: TextStyle(color: logoColor, fontWeight: FontWeight.bold, fontSize: 11)),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  _buildKnowledgeCard(
-                    '1. Dasar-dasar Peternakan Sapi',
-                    'Kuasai manajemen pakan, sanitasi, dan nutrisi untuk memastikan pertumbuhan bobot sapi yang optimal.',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => NewsDetailPage(news: {
-                            'title': 'Dasar-dasar Peternakan Sapi Modern',
-                            'source': 'Akademia InvestCow',
-                            'logo': 'A',
-                            'logoColor': '#2196F3',
-                            'date': '2026',
-                            'time': 'Edukasi',
-                            'content': 'Peternakan sapi yang sukses dimulai dari manajemen harian yang disiplin. \n\nHal-hal mendasar yang wajib Anda pahami:\n\n1. Manajemen Pakan: Pemberian ransum hijauan (rumput gajah/odot) dikombinasikan dengan konsentrat protein 14-16% dengan rasio 60:40.\n\n2. Kebersihan Kandang: Sanitasi rutin minimal 2x sehari untuk mencegah penyakit kuku, mulut, dan lalat pembawa virus.\n\n3. Penimbangan Rutin: Sapi rutin ditimbang untuk memantau ADG (Average Daily Gain). Target InvestCow adalah 0.8 - 1.2 kg per hari.\n\n4. Pemberian Nutrisi: Penggunaan Mineral Block dan Vitamin B-Complex sangat penting untuk meningkatkan imunitas dan nafsu makan sapi terutama di musim penghujan.',
-                          }),
-                        ),
-                      );
-                    },
+                  const SizedBox(height: 6),
+                  Text(
+                    news['title'],
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, height: 1.4, color: Color(0xFF1A1A1A)),
                   ),
-                  _buildKnowledgeCard(
-                    '2. Faktor Harga Sapi',
-                    'Pelajari variabel penentu harga pasar mulai dari bobot, genetik, hingga tren musiman seperti Idul Adha.',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => NewsDetailPage(news: {
-                            'title': 'Analisis Faktor Penentu Harga Sapi',
-                            'source': 'Pasar InvestCow',
-                            'logo': 'P',
-                            'logoColor': '#F44336',
-                            'date': '2026',
-                            'time': 'Edukasi',
-                            'content': 'Harga sapi di pasar sangat dinamis dan dipengaruhi oleh kriteria fisik serta momentum waktu. \n\nKomponen Utama Penentu Harga:\n\n1. Bobot Badan (Live Weight): Ini adalah faktor paling dominan. Harga biasanya dihitung per kg berat hidup sesuai timbangan digital.\n\n2. Jenis Genetik: Sapi eksotis seperti Limousin, Simmental, dan Angus memiliki nilai jual lebih tinggi dibanding sapi lokal karena persentase daging (karkas) yang mencapai 50-60%.\n\n3. Usia & Kondisi Gigi (Poel): Ketentuan qurban mengharuskan sapi minimal poel 1 (gigi tetap sudah berganti). Sapi poel memiliki nilai pasar yang premium.\n\n4. Momentum Hari Raya: Menjelang Idul Adha, harga sapi biasanya melonjak 20-35% dari harga normal. InvestCow membantu mitra memanfaatkan momentum ini untuk maksimalisasi ROI.',
-                          }),
-                        ),
-                      );
-                    },
+                  const SizedBox(height: 8),
+                  Text(
+                    'Selengkapnya...',
+                    style: TextStyle(color: _accentBlue, fontSize: 12, fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
@@ -558,30 +738,61 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildKnowledgeCard(String title, String content, {VoidCallback? onTap}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.blue[50],
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15))),
-                if (onTap != null) const Icon(Icons.chevron_right, size: 18, color: Colors.blue),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(content, style: const TextStyle(fontSize: 13, height: 1.4)),
-          ],
+  Widget _buildKnowledgeCard(String title, String content, {IconData? icon, Color? color, VoidCallback? onTap}) {
+    final themeColor = color ?? Colors.blue;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: themeColor.withOpacity(0.1)),
+        boxShadow: [
+          BoxShadow(color: themeColor.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5)),
+        ],
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: themeColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon ?? Icons.book_outlined, color: themeColor, size: 24),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1A1A1A)),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      content,
+                      style: TextStyle(fontSize: 13, height: 1.5, color: Colors.grey[700]),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Text('Pelajari Lanjut', style: TextStyle(color: themeColor, fontSize: 12, fontWeight: FontWeight.bold)),
+                        const SizedBox(width: 4),
+                        Icon(Icons.arrow_forward, size: 14, color: themeColor),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

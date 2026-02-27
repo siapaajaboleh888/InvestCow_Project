@@ -145,7 +145,7 @@ class _PasarModalPageState extends State<PasarModalPage> {
               if (h == l) { h += 1.0; l -= 1.0; }
 
               final newCandle = Candle(
-                date: DateTime.tryParse(candleData['timestamp'].toString()) ?? DateTime.now(),
+                date: DateTime.tryParse(candleData['timestamp']?.toString() ?? '') ?? DateTime.now(),
                 high: h,
                 low: l,
                 open: o,
@@ -222,7 +222,7 @@ class _PasarModalPageState extends State<PasarModalPage> {
             if (h == l) { h += 1.0; l -= 1.0; }
 
             return Candle(
-              date: DateTime.tryParse(item['date'].toString()) ?? DateTime.now(),
+              date: DateTime.tryParse(item['timestamp']?.toString() ?? item['date']?.toString() ?? '') ?? DateTime.now(),
               high: h,
               low: l,
               open: o,
@@ -234,12 +234,12 @@ class _PasarModalPageState extends State<PasarModalPage> {
           // Ensure at least 2 candles for the chart stability
           if (_candles.length < 2 && _selectedProduct != null) {
              final basePrice = _currentPrice > 10.0 ? _currentPrice : 1000.0;
-             final now = DateTime.now();
-             
-             List<Candle> dummy = [];
-             // First candle
-             dummy.add(Candle(
-               date: now.subtract(const Duration(minutes: 1)),
+              final now = DateTime.now();
+              
+              List<Candle> dummy = [];
+              // First candle
+              dummy.add(Candle(
+                date: now.subtract(const Duration(minutes: 5)),
                high: basePrice * 1.005,
                low: basePrice * 0.995,
                open: basePrice * 0.998,
@@ -525,9 +525,18 @@ class _PasarModalPageState extends State<PasarModalPage> {
 
             // Professional Chart
             Container(
-              height: 350,
+              height: 380,
               width: double.infinity,
+              margin: const EdgeInsets.symmetric(horizontal: 12),
               padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF171B26),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white10),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4)),
+                ],
+              ),
               child: _candles.length < 2 
                 ? const Center(
                     child: Column(
@@ -535,13 +544,16 @@ class _PasarModalPageState extends State<PasarModalPage> {
                       children: [
                         CircularProgressIndicator(color: Colors.cyan),
                         SizedBox(height: 8),
-                        Text('Memproses data pasar...', style: TextStyle(color: Colors.grey)),
+                        Text('Menyeimbangkan data pasar...', style: TextStyle(color: Colors.grey, fontSize: 12)),
                       ],
                     ),
                   )
-                : Candlesticks(
-                    key: ValueKey('${_selectedProduct?['id']}_${_candles.length}'),
-                    candles: _candles,
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Candlesticks(
+                        key: ValueKey('${_selectedProduct?['id']}_${_candles.length}'),
+                        candles: _candles,
+                      ),
                   ),
             ),
 
@@ -878,7 +890,7 @@ class _PasarModalPageState extends State<PasarModalPage> {
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Masukkan nominal yang valid')));
                           return;
                         }
-                        await _authService.topUp(amt);
+                        await _authService.topUp(amt, method: selectedMethod);
                         if (!mounted) return;
                         Navigator.pop(context);
                         _fetchUserData();

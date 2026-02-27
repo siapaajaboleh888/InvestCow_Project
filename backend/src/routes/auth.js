@@ -75,7 +75,7 @@ router.post('/topup', authMiddleware, async (req, res) => {
   const connection = await pool.getConnection();
   try {
     const userId = req.user.id;
-    const { amount } = req.body || {};
+    const { amount, method } = req.body || {};
     if (!amount || amount <= 0) return res.status(400).json({ message: 'Invalid amount' });
 
     await connection.beginTransaction();
@@ -99,10 +99,15 @@ router.post('/topup', authMiddleware, async (req, res) => {
       INSERT INTO transactions 
       (user_id, portfolio_id, product_id, type, symbol, amount, quantity, price, occurred_at, note) 
       VALUES 
-      (:uid, :pid, NULL, 'TOPUP', 'CASH', :amount, 0, 0, NOW(), 'Top Up Saldo')
+      (:uid, :pid, NULL, 'TOPUP', 'CASH', :amount, 0, 0, NOW(), :note)
     `;
 
-    await connection.query(query, { uid: userId, pid: portfolioId, amount });
+    await connection.query(query, {
+      uid: userId,
+      pid: portfolioId,
+      amount,
+      note: method ? method : 'Saldo Utama'
+    });
 
     const [rows] = await connection.query('SELECT balance FROM users WHERE id = :id', { id: userId });
 

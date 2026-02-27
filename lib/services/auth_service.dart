@@ -349,14 +349,17 @@ class AuthService {
     return jsonDecode(res.body);
   }
 
-  Future<void> topUp(double amount) async {
+  Future<void> topUp(double amount, {String? method}) async {
     final client = ApiClient();
     final token = await getToken();
     final uri = client.uri('/auth/topup');
     final res = await http.post(
       uri,
       headers: client.jsonHeaders(token: token),
-      body: jsonEncode({'amount': amount}),
+      body: jsonEncode({
+        'amount': amount,
+        'method': method,
+      }),
     );
     if (res.statusCode != 200) {
       final data = jsonDecode(res.body);

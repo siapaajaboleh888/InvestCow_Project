@@ -59,7 +59,7 @@ class _KasPageState extends State<KasPage> {
             return {
               'jenis': displayType,
               'nominal': nominal,
-              'metode': t['note'] ?? (type == 'topup' ? 'TopUp' : 'Investasi'),
+              'metode': t['note'] ?? (type == 'topup' ? 'Saldo Utama' : 'Investasi'),
               'tanggal': DateTime.tryParse(t['occurred_at']?.toString() ?? '') ?? DateTime.now(),
               'status': 'Berhasil',
               'original_type': type,
@@ -91,7 +91,7 @@ class _KasPageState extends State<KasPage> {
 
   Future<void> _tambahSaldo(double nominal, String metode) async {
     try {
-      await _authService.topUp(nominal);
+      await _authService.topUp(nominal, method: metode);
       await _loadKasData(); // Reload everything from backend
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Top up gagal: $e'), backgroundColor: Colors.red));
@@ -148,7 +148,7 @@ class _KasPageState extends State<KasPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Via $metode',
+              metode,
               style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             ),
           ],
@@ -487,7 +487,7 @@ class _KasPageState extends State<KasPage> {
                             children: [
                               const SizedBox(height: 4),
                               Text(
-                                'Via ${transaksi['metode']}',
+                                transaksi['metode'] == 'Saldo Utama' ? 'Saldo Utama' : transaksi['metode'],
                                 style: TextStyle(
                                   color: Colors.grey[600],
                                   fontSize: 13,

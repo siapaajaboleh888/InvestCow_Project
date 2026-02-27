@@ -21,6 +21,12 @@ class PriceEngine {
         this.intervalId = setInterval(async () => {
             await this.simulatePrices();
         }, 15000);
+
+        // DATABASE MAINTENANCE: Hapus data harga jadul (> 7 hari) setiap 1 jam
+        // Agar database tidak bengkak saat sudah hosting
+        this.pruneId = setInterval(async () => {
+            await this.pruneOldData();
+        }, 3600000);
     }
 
     stop() {
@@ -28,8 +34,27 @@ class PriceEngine {
             clearInterval(this.intervalId);
             this.intervalId = null;
         }
+        if (this.pruneId) {
+            clearInterval(this.pruneId);
+            this.pruneId = null;
+        }
         this.isRunning = false;
         console.log('🛑 Price Engine stopped.');
+    }
+
+    async pruneOldData() {
+        try {
+            console.log('🧹 Cleaning up old price data...');
+            // Hapus data yang lebih tua dari 7 hari
+            const [result] = await pool.query(
+                "DELETE FROM product_prices WHERE timestamp < DATE_SUB(NOW(), INTERVAL 7 DAY)"
+            );
+            if (result.affectedRows > 0) {
+                console.log(`✅ Pruned ${result.affectedRows} old price records.`);
+            }
+        } catch (error) {
+            console.error('❌ Data Pruning Error:', error);
+        }
     }
 
     async simulatePrices() {

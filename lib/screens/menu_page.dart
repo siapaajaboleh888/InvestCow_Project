@@ -5,6 +5,7 @@ import 'kandang_page.dart';
 import 'cctv_page.dart';
 import 'transaksi_page.dart';
 import 'pasar_page.dart';
+import 'glosarium_page.dart';
 import '../main.dart';
 
 class MenuPage extends StatelessWidget {
@@ -48,12 +49,12 @@ class MenuPage extends StatelessWidget {
           ),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(12.0), // Dikurangi dari 16 ke 12
+              padding: const EdgeInsets.all(12.0),
               child: GridView.count(
                 crossAxisCount: 2,
-                crossAxisSpacing: 12, // Dikurangi dari 16 ke 12
-                mainAxisSpacing: 12, // Dikurangi dari 16 ke 12
-                childAspectRatio: 1.05, // Sedikit lebih lebar
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.05,
                 children: [
                   MenuCard(
                     icon: Icons.account_balance_wallet,
@@ -118,6 +119,17 @@ class MenuPage extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => const KesehatanPage()),
+                      );
+                    },
+                  ),
+                  MenuCard(
+                    icon: Icons.menu_book_rounded,
+                    title: 'Glosarium',
+                    color: Colors.indigo[400]!,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const GlosariumPage()),
                       );
                     },
                   ),

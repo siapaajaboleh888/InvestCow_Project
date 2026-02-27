@@ -1,7 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class FAQPage extends StatelessWidget {
   const FAQPage({super.key});
+
+  Future<void> _launchWhatsApp(BuildContext context) async {
+    const String phoneNumber = '6285334159328';
+    const String message = 'Halo, saya butuh bantuan terkait aplikasi InvestCow.';
+    final Uri url = Uri.parse("https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}");
+    
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Tidak dapat membuka WhatsApp')),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +79,7 @@ class FAQPage extends StatelessWidget {
             context,
             question: 'Bagaimana cara menghubungi customer service?',
             answer:
-                'Anda dapat menghubungi customer service melalui email di support@example.com atau melalui WhatsApp di +62 812 3456 7890.',
+                'Anda dapat menghubungi customer service kami melalui WhatsApp di nomor 085334159328.',
           ),
 
           _buildFAQItem(
@@ -68,7 +93,7 @@ class FAQPage extends StatelessWidget {
             context,
             question: 'Bagaimana cara menghapus akun?',
             answer:
-                'Untuk menghapus akun, silakan hubungi customer service kami. Perlu diingat bahwa penghapusan akun bersifat permanen dan tidak dapat dibatalkan.',
+                'Untuk menghapus akun, silakan hubungi customer service kami melalui WhatsApp. Perlu diingat bahwa penghapusan akun bersifat permanen dan tidak dapat dibatalkan.',
           ),
 
           _buildFAQItem(
@@ -76,7 +101,7 @@ class FAQPage extends StatelessWidget {
             question:
                 'Aplikasi tidak berfungsi dengan baik, apa yang harus dilakukan?',
             answer:
-                'Coba untuk logout kemudian login kembali, atau hapus cache aplikasi di menu Pengaturan. Jika masalah berlanjut, silakan hubungi customer service kami.',
+                'Coba untuk logout kemudian login kembali, atau hapus cache aplikasi di menu Pengaturan. Jika masalah berlanjut, silakan hubungi customer service kami melalui WhatsApp.',
           ),
 
           const SizedBox(height: 30),
@@ -102,12 +127,8 @@ class FAQPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 15),
                   ElevatedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Menghubungi Support...')),
-                      );
-                    },
-                    icon: const Icon(Icons.email),
+                    onPressed: () => _launchWhatsApp(context),
+                    icon: const Icon(Icons.chat),
                     label: const Text('Hubungi Support'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.cyan[400],
