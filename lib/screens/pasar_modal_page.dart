@@ -124,6 +124,7 @@ class _PasarModalPageState extends State<PasarModalPage> {
           final newPrice = _toDouble(data['newPrice']);
           final candleData = data['candle'];
           
+          if (!mounted) return;
           setState(() {
             _prevPrice = _currentPrice;
             _currentPrice = newPrice;
@@ -212,6 +213,7 @@ class _PasarModalPageState extends State<PasarModalPage> {
       final res = await http.get(_apiClient.uri('/admin/products/$productId/history'));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as List;
+        if (!mounted) return;
         setState(() {
           _candles = data.map<Candle>((item) {
             double h = _toDouble(item['high']);
@@ -1054,16 +1056,19 @@ class _PasarModalPageState extends State<PasarModalPage> {
                   occurredAt: DateTime.now(),
                 );
                 
+                if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Transaksi ${type == 'BUY' ? 'Pembelian' : 'Penjualan'} Berhasil!'), backgroundColor: Colors.green),
                 );
                 
                 // 2. Sync with Server after a tiny delay to ensure DB propagation
                 await Future.delayed(const Duration(milliseconds: 800));
+                if (!mounted) return;
                 await _fetchUserData(); 
                 await _fetchInitialData(); // Refresh product quotas too
               } catch (e) {
                 // Rollback local state on error
+                if (!mounted) return;
                 _fetchUserData();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Error: $e'), backgroundColor: Colors.redAccent),
