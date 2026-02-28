@@ -110,35 +110,57 @@ class _CctvPageState extends State<CctvPage> {
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
                     ? Center(child: Text('Error: $_error'))
-                    : displayCows.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                    : Column(
+                        children: [
+                          Expanded(
+                            child: displayCows.isEmpty
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.videocam_off, size: 64, color: Colors.grey[400]),
+                                        const SizedBox(height: 16),
+                                        Text('Tidak ada data kandang untuk "${widget.filter ?? ''}"'),
+                                      ],
+                                    ),
+                                  )
+                                : GridView.builder(
+                                    padding: const EdgeInsets.all(12),
+                                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      crossAxisSpacing: 12,
+                                      mainAxisSpacing: 12,
+                                      childAspectRatio: 0.85,
+                                    ),
+                                    itemCount: displayCows.length,
+                                    itemBuilder: (context, index) {
+                                      final cow = displayCows[index];
+                                      return _buildCctvCard(context, cow);
+                                    },
+                                  ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.cyan[50],
+                              border: Border(top: BorderSide(color: Colors.cyan[100]!)),
+                            ),
+                            child: Row(
                               children: [
-                                Icon(Icons.videocam_off, size: 64, color: Colors.grey[400]),
-                                const SizedBox(height: 16),
-                                Text('Tidak ada data kandang untuk "${widget.filter ?? ''}"'),
-                                if (widget.filter != null) ...[
-                                  const SizedBox(height: 16),
-                                  TextButton(onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => CctvPage())), child: const Text('Lihat Semua Kandang'))
-                                ]
+                                Icon(Icons.info_outline, color: Colors.cyan[800], size: 18),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text(
+                                    'Pemberitahuan: Feed ini menggunakan siaran publik untuk tujuan demonstrasi transparansi monitoring.',
+                                    style: TextStyle(fontSize: 11, color: Colors.black54),
+                                  ),
+                                ),
                               ],
                             ),
-                          )
-                        : GridView.builder(
-                            padding: const EdgeInsets.all(12),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 0.85,
-                            ),
-                            itemCount: displayCows.length,
-                            itemBuilder: (context, index) {
-                              final cow = displayCows[index];
-                              return _buildCctvCard(context, cow);
-                            },
                           ),
+                        ],
+                      ),
           ),
         ],
       ),
@@ -393,25 +415,35 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
           Container(
             padding: const EdgeInsets.all(16),
             color: Colors.white10,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.info_outline, color: Colors.cyan, size: 16),
-                const SizedBox(width: 8),
-                Text(
-                  'ID Produk: ${widget.cow['ticker_code']}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.info_outline, color: Colors.cyan, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Monitoring Demo: ${widget.cow['ticker_code']}',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                    const SizedBox(width: 16),
+                    const Icon(Icons.check_circle_outline, color: Colors.green, size: 16),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Status Aktif',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                const Icon(Icons.check_circle_outline, color: Colors.green, size: 16),
-                const SizedBox(width: 8),
+                const SizedBox(height: 8),
                 const Text(
-                  'Kandang Terverifikasi',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  '*Siaran langsung ini adalah representasi simulasi monitoring real-time',
+                  style: TextStyle(color: Colors.white38, fontSize: 10, fontStyle: FontStyle.italic),
                 ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
@@ -432,5 +464,3 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
     }
   }
 }
-
-
