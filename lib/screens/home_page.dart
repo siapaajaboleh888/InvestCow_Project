@@ -9,6 +9,7 @@ import 'news_detail_page.dart';
 import 'riwayat_page.dart';
 import 'pasar_page.dart';
 import 'glosarium_page.dart';
+import 'cctv_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -37,20 +38,39 @@ class _HomePageState extends State<HomePage> {
       'change': '+1.78%',
       'up': true,
       'trend': [1.0, 1.2, 1.1, 1.4, 1.6, 1.5, 1.8],
+      'image': '/uploads/sapi_madura.jpg',
     },
     {
-      'name': 'Sapi Bali',
-      'price': 19163600,
-      'change': '-0.62%',
-      'up': false,
-      'trend': [1.8, 1.7, 1.8, 1.6, 1.5, 1.4, 1.3],
-    },
-    {
-      'name': 'Sapi Brahman',
+      'name': 'Sapi Brahman Premium',
       'price': 25215400,
       'change': '+2.15%',
       'up': true,
       'trend': [1.2, 1.3, 1.2, 1.5, 1.7, 1.9, 2.1],
+      'image': '/uploads/sapi_brahman_premium.jpg',
+    },
+    {
+      'name': 'Sapi Angus Pedaging',
+      'price': 38450000,
+      'change': '+3.45%',
+      'up': true,
+      'trend': [2.0, 2.2, 2.5, 2.8, 3.1, 3.2, 3.5],
+      'image': '/uploads/sapi_angus_premium.jpg',
+    },
+    {
+      'name': 'Sapi Limousin',
+      'price': 32150000,
+      'change': '-1.20%',
+      'up': false,
+      'trend': [3.5, 3.4, 3.2, 3.1, 3.0, 2.9, 2.8],
+      'image': '/uploads/sapi_limousin.jpg',
+    },
+    {
+      'name': 'Sapi Peranakan Ongole (PO)',
+      'price': 19970000,
+      'change': '+0.45%',
+      'up': true,
+      'trend': [1.5, 1.6, 1.5, 1.7, 1.6, 1.8, 1.9],
+      'image': '/uploads/sapi_bali.jpg',
     },
   ];
 
@@ -95,8 +115,9 @@ class _HomePageState extends State<HomePage> {
           
           final ticker = item['symbol'].toString();
           final priceData = _cowPrices.firstWhere(
-            (p) => p['name'].toString().contains(ticker) || ticker.contains(p['name'].toString()),
-            orElse: () => {'price': 20000000},
+            (p) => p['name'].toString().toLowerCase().contains(ticker.toLowerCase()) || 
+                   ticker.toLowerCase().contains(p['name'].toString().toLowerCase()),
+            orElse: () => {'price': 22450000}, // Use Madura as baseline default if fail
           );
           
           final currentVal = qty * (priceData['price'] as int);
@@ -167,8 +188,8 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  String _formatCurrency(int val) {
-    return val.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.');
+  String _formatCurrency(num val) {
+    return 'Rp ' + val.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.');
   }
 
   final Color _premiumBlack = const Color(0xFF121212);
@@ -339,7 +360,10 @@ class _HomePageState extends State<HomePage> {
                           children: [
                             Icon(Icons.trending_up, color: _accentGreen, size: 16),
                             const SizedBox(width: 6),
-                            Text('+12.5%', style: TextStyle(color: _accentGreen, fontSize: 13, fontWeight: FontWeight.bold)),
+                            Text(
+                              _totalInvestmentValue > 0 ? '+12.5%' : '+0.0%',
+                              style: TextStyle(color: _accentGreen, fontSize: 13, fontWeight: FontWeight.bold),
+                            ),
                             const SizedBox(width: 8),
                             const Text('Bulan ini', style: TextStyle(color: Colors.white38, fontSize: 12)),
                           ],
@@ -360,6 +384,176 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(width: 16),
                     Expanded(child: _buildInfoCard('Total Unit', '${_totalOwnedCows % 1 == 0 ? _totalOwnedCows.toInt() : _totalOwnedCows.toStringAsFixed(2)} Ekor', Icons.pets_outlined, Colors.blue)),
                   ],
+                ),
+              ),
+              const SizedBox(height: 32),
+              // Analisis Pasar Hari Ini Block
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.blue[900]!, Colors.blue[700]!],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4)),
+                    ],
+                  ),
+                  child: InkWell(
+                    onTap: () => _showMarketTechnicalDetails(),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.analytics_rounded, color: Colors.white, size: 28),
+                            const SizedBox(width: 12),
+                            const Text('Analisis Pasar Hari Ini', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+                              child: const Text('ACCUMULATION', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildMarketStat('Sentimen', 'Positif', Icons.trending_up, Colors.greenAccent, () => _showSentimentDetails()),
+                            _buildMarketStat('Volatilitas', 'Stabil', Icons.waves, Colors.orangeAccent, () => _showVolatilityDetails()),
+                            _buildMarketStat('Kepercayaan', '92%', Icons.verified_user, Colors.lightBlueAccent, () => _showConfidenceDetails()),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        const Divider(color: Colors.white24),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Kesimpulan: Kondisi pasar sedang dalam fase akumulasi sehat. Fluktuasi harga mikro saat ini adalah wajar sebelum potensi kenaikan di periode berikutnya.',
+                          style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Wawasan Cerdas Block
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+                    ],
+                  ),
+                child: InkWell(
+                  onTap: () => _showDetailedInsights(),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(color: Colors.orange[100], shape: BoxShape.circle),
+                            child: const Icon(Icons.psychology_outlined, color: Colors.orange),
+                          ),
+                          const SizedBox(width: 12),
+                          const Text('Wawasan Cerdas', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                          const Spacer(),
+                          const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _buildSmartInsight(
+                        'Permintaan Nasional',
+                        'Meningkatnya kebutuhan daging sapi menjelang hari besar nasional mengerek harga jual seluruh jenis sapi.',
+                        Icons.trending_up,
+                        () => _showInsightDetail(
+                          'Permintaan Nasional',
+                          'Menjelang hari besar nasional (seperti Idul Adha dan Idul Fitri), data historis menunjukkan peningkatan permintaan daging sapi hingga 300%. Hal ini menciptakan sentimen positif yang kuat pada seluruh aset ternak tanpa terkecuali.',
+                          'Pertimbangkan untuk menambah unit sebelum H-60 hari besar untuk memaksimalkan potensi kenaikan harga.'
+                        ),
+                      ),
+                      const Divider(height: 24),
+                      _buildSmartInsight(
+                        'Efisiensi Pakan',
+                        'Inovasi pakan fermentasi berhasil menekan biaya operasional di seluruh kemitraan peternakan.',
+                        Icons.eco_outlined,
+                        () => _showInsightDetail(
+                          'Efisiensi Pakan',
+                          'Penggunaan teknologi pengolahan pakan silase dan fermentasi memungkinkan peternak kemitraan InvestCow menekan biaya hingga 15% setiap harinya. Efisiensi ini langsung meningkatkan margin bagi hasil bagi investor.',
+                          'Pantau laporan kesehatan sapi secara berkala untuk melihat dampak nutrisi pakan terhadap ADG (Average Daily Gain).'
+                        ),
+                      ),
+                      const Divider(height: 24),
+                      _buildSmartInsight(
+                        'Proyeksi 2026',
+                        'Laporan pasar menunjukkan tren positif investasi aset ternak sebagai lindung nilai inflasi.',
+                        Icons.public,
+                        () => _showInsightDetail(
+                          'Proyeksi 2026',
+                          'Ternak sapi adalah aset riil yang memiliki korelasi rendah dengan pasar saham namun korelasi tinggi dengan inflasi. Di tahun 2026, diprediksi pasokan global akan mengetat, menjadikan kepemilikan sapi sebagai pelindung nilai kekayaan yang aman.',
+                          'Pertahankan portofolio jangka panjang (di atas 1 tahun) untuk mendapatkan keuntungan maksimal dari siklus pertumbuhan sapi.'
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Risk Protection Block
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.blue[800],
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4)),
+                    ],
+                  ),
+                  child: InkWell(
+                    onTap: () => _showRiskProtectionDetails(),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
+                            child: const Icon(Icons.shield_outlined, color: Colors.white, size: 24),
+                          ),
+                          const SizedBox(width: 16),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Perlindungan & Mitigasi Risiko', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                                SizedBox(height: 4),
+                                Text('Bagaimana jika sapi sakit atau mati?', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right, color: Colors.white),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 32),
@@ -428,76 +622,18 @@ class _HomePageState extends State<HomePage> {
             ]
             else if (_activeTab == 'Harga Sapi') ...[
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.blue.withOpacity(0.1)),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.inventory_2_outlined, size: 24, color: Colors.blue),
-                          SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Analisis Pasar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                Text('Pembaruan harga real-time setiap 10 detik', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
                     const Text('Daftar Harga Sapi Live', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    const Text('Pantau pergerakan harga pasar secara real-time', style: TextStyle(color: Colors.grey, fontSize: 12)),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
               _buildPriceScroll(limit: null),
-              const SizedBox(height: 24),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.orange[50], 
-                    borderRadius: BorderRadius.circular(16), 
-                    border: Border.all(color: Colors.orange[100]!)
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: Colors.orange[100], shape: BoxShape.circle),
-                        child: const Icon(Icons.lightbulb_outline, color: Colors.orange),
-                      ),
-                      const SizedBox(width: 16),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Wawasan Cerdas', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.brown)),
-                            SizedBox(height: 4),
-                            Text(
-                              'Sapi Madura sedang mengalami lonjakan permintaan akibat persiapan stok lokal. Potensi profit lebih tinggi.',
-                              style: TextStyle(fontSize: 12, color: Colors.brown, height: 1.4),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
               const SizedBox(height: 30),
             ]
             else if (_activeTab == 'Pakan') ...[
@@ -630,9 +766,9 @@ class _HomePageState extends State<HomePage> {
                               'date': 'Target 2026',
                               'time': 'Proyeksi',
                               'content': 'Berdasarkan portofolio aktif Anda:\n\n$breakdown\n'
-                                  '• Total Estimasi Capital Gain: Rp ${_formatCurrency(estProfit.toInt())}\n'
+                                  '• Total Estimasi Capital Gain: ${_formatCurrency(estProfit.toInt())}\n'
                                   '• Proyeksi ROI Tahunan: 18.5% - 22.1%\n'
-                                  '• Estimasi Harga Jual Target: Rp ${_formatCurrency((_totalInvestmentValue * 1.2).toInt())}\n\n'
+                                  '• Estimasi Harga Jual Target: ${_formatCurrency((_totalInvestmentValue * 1.2).toInt())}\n\n'
                                   'Aturan Kepemilikan Unit (Contoh 1.73 Unit):\n'
                                   'Jika Anda membeli atau menjual 1.73 unit, maka SELURUH jumlah tersebut (termasuk desimalnya) dianggap sebagai Kepemilikan Utuh. '
                                   'Artinya, rasio bagi hasil yang berlaku adalah 90% Investor / 10% Peternak untuk total 1.73 unit tersebut.\n\n'
@@ -862,8 +998,454 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildMarketStat(String label, String value, IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 8),
+            Text(value, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(label, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSmartInsight(String title, String description, IconData icon, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: Colors.blue[300], size: 18),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)),
+                  const SizedBox(height: 4),
+                  Text(description, style: TextStyle(fontSize: 12, color: Colors.grey[600], height: 1.4)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSentimentDetails() {
+    _showInsightDetail(
+      'Analisis Sentimen Pasar',
+      'Sentimen saat ini berada di zona "Positif" yang digerakkan oleh tingginya volume akumulasi investor pada kuartal ini. Indikator teknikal menunjukkan kekuatan beli yang dominan di pasar seluruh jenis sapi.',
+      'RSI saat ini berada di level 58 (Netral-Positif). Area ini merupakan zona aman untuk melakukan "Top Up" atau penambahan unit investasi karena belum mencapai area jenuh beli (overbought).'
+    );
+  }
+
+  void _showVolatilityDetails() {
+    _showInsightDetail(
+      'Analisis Volatilitas',
+      'Tingkat volatilitas dikategorikan "Stabil". Meskipun Anda melihat pergerakan harga 10 detik sekali (live), deviasi harganya masih dalam batas wajar (+/- 0.05%), sehingga risiko pergerakan harga liar sangat rendah.',
+      'Gunakan kondisi stabil ini untuk melakukan investasi jangka panjang. Pasar yang stabil biasanya merupakan fondasi yang kuat sebelum terjadi lonjakan harga (breakout) di masa depan.'
+    );
+  }
+
+  void _showConfidenceDetails() {
+    _showInsightDetail(
+      'Skor Kepercayaan Sistem',
+      'Skor 92% dihitung berdasarkan akurasi data dari 12 kemitraan peternakan aktif, kecepatan sinkronisasi data IoT di kandang, dan verifikasi fisik yang dilakukan oleh tim auditor InvestCow setiap bulannya.',
+      'Skor kepercayaan tinggi menjamin bahwa harga yang Anda lihat di dashboard adalah representasi nyata dari kondisi aset fisik sapi Anda di lapangan.'
+    );
+  }
+
+  void _showMarketTechnicalDetails() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 24),
+              const Text('Detail Analisis Pasar', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text('Informasi mendalam mengenai pergerakan harga hari ini.', style: TextStyle(color: Colors.grey)),
+              const SizedBox(height: 32),
+              _buildDetailRow('Status Sesi', 'Accumulation', Colors.blue),
+              _buildDetailRow('Volume Perdagangan', 'Tinggi (Rata-rata di atas 120%)', Colors.green),
+              _buildDetailRow('Korelasi Pakan', 'Stabil (Dampak minimal)', Colors.grey),
+              const SizedBox(height: 32),
+              const Text('Mengapa harga live terkadang merah?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              const Text(
+                'Fluktuasi merah (-0.01%) pada harga live adalah pergerakan mikro (random walk) pasar setiap 10 detik. Hal ini sangat wajar dalam perdagangan aktif dan tidak mengubah tren positif jangka panjang (+12.5% per bulan) yang didukung oleh analisis sentimen di atas.',
+                style: TextStyle(color: Colors.black54, height: 1.6),
+              ),
+              const SizedBox(height: 24),
+              const Text('Indikator Teknikal', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              _buildInsightPoint('RSI (Relative Strength Index)', 'Berada di level 58, menunjukkan pasar masih memiliki ruang untuk penguatan sebelum mencapai area jenuh beli.'),
+              _buildInsightPoint('Moving Average', 'Harga saat ini bergerak di atas MA-20, mengonfirmasi tren jangka pendek yang masih sangat sehat.'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showInsightDetail(String title, String content, String advice) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.6,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 24),
+              Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.blue)),
+              const SizedBox(height: 20),
+              const Text('Analisis Mendalam:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              Text(content, style: const TextStyle(color: Colors.black87, height: 1.6)),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(12)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.tips_and_updates, color: Colors.blue, size: 20),
+                        SizedBox(width: 8),
+                        Text('Saran untuk Anda:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(advice, style: TextStyle(color: Colors.blue[900], fontSize: 13)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDetailedInsights() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 24),
+              const Text('Wawasan Strategis Investor', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 32),
+              _buildInsightPoint('Diversifikasi Aset', 'Sangat disarankan untuk membagi portofolio antara Sapi Madura (stabilitas) dan Sapi Brahman (pertumbuhan tinggi).'),
+              const SizedBox(height: 24),
+              _buildInsightPoint('Manajemen Risiko', 'Gunakan modal dingin. Meskipun harga ternak cenderung naik secara historis, fluktuasi jangka pendek tetap ada.'),
+              const SizedBox(height: 24),
+              _buildInsightPoint('Faktor Musiman', 'Menjelang Idul Adha dan Idul Fitri adalah periode emas dimana harga sapi biasanya mencapai puncak tertinggi tahunan.'),
+              const SizedBox(height: 24),
+              _buildInsightPoint('Siklus Pertumbuhan (Penting!)', 'Investasi sapi adalah aset biologis. Keuntungan maksimal (ROI 12.5%+) didapatkan setelah siklus penggemukan selesai (biasanya 4-6 bulan). Di minggu pertama, nilai mungkin terlihat fluktuatif karena selisih harga jual/beli pakan dan pasar.'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.grey)),
+          Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  void _showRiskProtectionDetails() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.75,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 24),
+              const Row(
+                children: [
+                  Icon(Icons.security, color: Colors.blue, size: 28),
+                  SizedBox(width: 12),
+                  Text('Perlindungan InvestCow', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _buildRiskPoint(
+                '1. Bagaimana jika sapi sakit?',
+                'InvestCow bekerjasama dengan tim Medis Veteriner (Dokter Hewan) yang standby di setiap mitra kandang. Seluruh biaya pengobatan dan vitamin rutin sudah masuk dalam dana operasional yang dikelola peternak, sehingga tidak ada biaya tambahan bagi investor.',
+                Icons.medical_services_outlined,
+              ),
+              const SizedBox(height: 20),
+              _buildRiskPoint(
+                '2. Bagaimana jika sapi mati?',
+                'Mitigasi utama kami adalah Asuransi Ternak (Livestock Insurance). Jika terjadi kematian akibat penyakit atau kecelakaan medis (bukan kelalaian), dana asuransi atau cadangan risiko InvestCow akan digunakan untuk mengganti modal bibit baru atau pengembalian modal sesuai akad perlindungan.',
+                Icons.heart_broken_outlined,
+              ),
+              const SizedBox(height: 20),
+              _buildRiskPoint(
+                '3. Bagaimana jika harga pasar turun?',
+                'Keuntungan utama berasal dari "Penambahan Berat Badan" (ADG). Meskipun harga pasar per kilogram turun tipis, selama sapi Anda bertumbuh subur dan gemuk, nilai total aset Anda (berat x harga) akan tetap di atas modal awal saat panen.',
+                Icons.trending_down_outlined,
+              ),
+              const SizedBox(height: 32),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.green[50], borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.green[100]!)),
+                child: const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Kepercayaan Anda adalah prioritas kami. Semua aset fisik sapi dilakukan audit rutin setiap bulan.',
+                        style: TextStyle(fontSize: 13, color: Colors.green, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRiskPoint(String title, String desc, IconData icon) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: Colors.blue[700], size: 24),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text(desc, style: TextStyle(color: Colors.grey[700], height: 1.5, fontSize: 13)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInsightPoint(String title, String desc) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
+        const SizedBox(height: 8),
+        Text(desc, style: const TextStyle(color: Colors.black54, height: 1.5)),
+      ],
+    );
+  }
+
   Widget _buildPriceScroll({int? limit}) {
     final displayItems = limit == null ? _cowPrices : _cowPrices.take(limit).toList();
+    
+    // Grid Layout for "Harga Sapi" Tab (Matching Image 2 card style but in Grid)
+    if (limit == null) {
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 0.82,
+        ),
+        itemCount: displayItems.length,
+        itemBuilder: (context, index) {
+          final item = displayItems[index];
+          return InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => CctvPage(filter: item['name'].toString().split(' ').last)),
+              );
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey[100]!),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Image Section
+                  Expanded(
+                    flex: 5,
+                    child: Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                          child: Image.network(
+                            item['image'].startsWith('http') 
+                              ? item['image'] 
+                              : '${_apiClient.baseUrl}${item['image']}',
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              color: Colors.grey[200],
+                              child: const Icon(Icons.pets, color: Colors.grey),
+                            ),
+                          ),
+                        ),
+                        // Gradient Overlay for text readability
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [
+                                Colors.white,
+                                Colors.white.withOpacity(0),
+                              ],
+                              stops: const [0.0, 0.4],
+                            ),
+                          ),
+                        ),
+                        // Video Icon overlay
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.8),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.videocam, size: 14, color: Colors.blue),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Content Section
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item['name'], 
+                          style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _formatCurrency(item['price'] as num),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF2D3142)),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              item['change'],
+                              style: TextStyle(
+                                color: item['up'] ? _accentGreen : _accentRed,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(
+                              height: 15,
+                              width: 50,
+                              child: CustomPaint(
+                                painter: SparklinePainter(item['trend'] as List<double>, item['up'] ? _accentGreen : _accentRed),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    // Horizontal Layout for Dashboard
     return SizedBox(
       height: 120,
       child: ListView.builder(
@@ -875,42 +1457,59 @@ class _HomePageState extends State<HomePage> {
           return Container(
             width: 160,
             margin: const EdgeInsets.only(right: 12),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => CctvPage(filter: item['name'].toString().split(' ').last)),
+                );
+              },
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey[200]!),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item['name'], style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                const SizedBox(height: 4),
-                Text(
-                  '${_formatCurrency((item['price'] as num).toInt())} IDR',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey[200]!),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
+                  ],
                 ),
-                const Spacer(),
-                Text(
-                  item['change'],
-                  style: TextStyle(
-                    color: item['up'] ? _accentGreen : _accentRed,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item['name'], style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatCurrency(item['price'] as num),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const Spacer(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          item['change'],
+                          style: TextStyle(
+                            color: item['up'] ? _accentGreen : _accentRed,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Icon(Icons.videocam_outlined, size: 14, color: Colors.blue),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      height: 24,
+                      width: double.infinity,
+                      child: CustomPaint(
+                        painter: SparklinePainter(item['trend'] as List<double>, item['up'] ? _accentGreen : _accentRed),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                SizedBox(
-                  height: 24,
-                  width: double.infinity,
-                  child: CustomPaint(
-                    painter: SparklinePainter(item['trend'] as List<double>, item['up'] ? _accentGreen : _accentRed),
-                  ),
-                ),
-              ],
+              ),
             ),
           );
         },

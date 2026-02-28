@@ -12,7 +12,17 @@ class _GlosariumPageState extends State<GlosariumPage> {
   
   final List<Map<String, dynamic>> _allTerms = [
     {
-      'term': 'Ikhtisar',
+      'term': 'Asuransi Ternak (Livestock Insurance)',
+      'desc': 'Perlindungan bagi investor jika sapi mengalami kematian akibat penyakit, kecelakaan, atau bencana alam. Menjamin keamanan modal bibit investor.',
+      'icon': Icons.security
+    },
+    {
+      'term': 'Mitigasi Risiko',
+      'desc': 'Langkah pencegahan kerugian, seperti vaksinasi, tim dokter hewan standby, dan pemilihan bibit unggul.',
+      'icon': Icons.admin_panel_settings_outlined
+    },
+    {
+      'term': 'Ikhtisar (Overview)',
       'desc': 'Ringkasan atau gambaran umum dari seluruh portofolio dan aktivitas investasi Anda secara cepat.',
       'icon': Icons.summarize_outlined
     },
@@ -23,12 +33,12 @@ class _GlosariumPageState extends State<GlosariumPage> {
     },
     {
       'term': 'ROI (Return on Investment)',
-      'desc': 'Rasio keuntungan atau kerugian yang dihasilkan dari investasi relatif terhadap jumlah modal yang diinvestasikan.',
+      'desc': 'Rasio keuntungan atau kerugian (dalam persentase) yang dihasilkan dari investasi relatif terhadap jumlah modal yang diinvestasikan.',
       'icon': Icons.pie_chart_outline
     },
     {
       'term': 'ADG (Average Daily Gain)',
-      'desc': 'Rata-rata pertambahan berat badan harian pada sapi dalam periode tertentu (biasanya gram/hari).',
+      'desc': 'Rata-rata pertambahan berat badan harian pada sapi dalam periode tertentu. Semakin tinggi ADG, semakin cepat nilai aset Anda bertambah.',
       'icon': Icons.monitor_weight_outlined
     },
     {
@@ -38,17 +48,57 @@ class _GlosariumPageState extends State<GlosariumPage> {
     },
     {
       'term': 'Ticker Code',
-      'desc': 'Kode unik identitas jenis sapi di pasar modal InvestCow (Contoh: MD-01 untuk Sapi Madura).',
+      'desc': 'Kode unik identitas jenis sapi di pasar InvestCow. Contoh: MADURA untuk Sapi Madura, PO-01 untuk Sapi Peranakan Ongole.',
       'icon': Icons.qr_code_outlined
     },
     {
-      'term': 'Sentimen Pasar',
-      'desc': 'Kondisi psikologis pasar yang mempengaruhi tren harga (Stabil, Bullish/Naik, atau Bearish/Turun).',
-      'icon': Icons.psychology_outlined
+      'term': 'Bullish',
+      'desc': 'Istilah pasar ketika harga sapi sedang dalam tren naik yang optimis.',
+      'icon': Icons.trending_up_rounded
+    },
+    {
+      'term': 'Bearish',
+      'desc': 'Istilah pasar ketika harga sapi sedang dalam tren turun atau pesimistis.',
+      'icon': Icons.trending_down_rounded
+    },
+    {
+      'term': 'Accumulation (Akumulasi)',
+      'desc': 'Fase di mana investor cenderung mulai membeli kembali aset saat harga dianggap sudah murah atau stabil sebelum terjadi kenaikan.',
+      'icon': Icons.add_business_outlined
+    },
+    {
+      'term': 'Portfolio (Portofolio)',
+      'desc': 'Kumpulan seluruh aset atau instrumen investasi yang dimiliki oleh seorang investor.',
+      'icon': Icons.folder_shared_outlined
+    },
+    {
+      'term': 'Diversifikasi',
+      'desc': 'Strategi menyebar investasi pada berbagai jenis sapi (misal: Madura dan Brahman) untuk meminimalkan risiko.',
+      'icon': Icons.diversity_3_outlined
+    },
+    {
+      'term': 'Capital Gain',
+      'desc': 'Keuntungan yang didapat dari selisih harga jual yang lebih tinggi dibandingkan dengan harga beli awal.',
+      'icon': Icons.payments_outlined
+    },
+    {
+      'term': 'Volatilitas',
+      'desc': 'Tingkat fluktuasi atau naik-turunnya harga aset dalam periode waktu tertentu.',
+      'icon': Icons.waves_outlined
+    },
+    {
+      'term': 'Likuiditas',
+      'desc': 'Seberapa cepat atau mudah sebuah aset investasi dapat dicairkan kembali menjadi uang tunai (saldo kas).',
+      'icon': Icons.paid_outlined
+    },
+    {
+      'term': 'Weighted Average Cost (WAC)',
+      'desc': 'Perhitungan harga beli rata-rata tertimbang jika Anda melakukan pembelian sapi yang sama di harga yang berbeda-beda.',
+      'icon': Icons.calculate_outlined
     },
     {
       'term': 'Unit',
-      'desc': 'Satuan kepemilikan aset di InvestCow. 1 Unit berarti kepemilikan atas 1 ekor sapi.',
+      'desc': 'Satuan kepemilikan aset di InvestCow. 1 Unit berarti kepemilikan atas 1 ekor sapi secara utuh.',
       'icon': Icons.inventory_2_outlined
     },
     {
@@ -57,8 +107,23 @@ class _GlosariumPageState extends State<GlosariumPage> {
       'icon': Icons.grass_outlined
     },
     {
+      'term': 'Lindung Nilai (Hedge)',
+      'desc': 'Strategi investasi untuk melindungi nilai kekayaan dari risiko kerugian akibat inflasi atau penurunan nilai mata uang.',
+      'icon': Icons.shield_outlined
+    },
+    {
+      'term': 'Live Stream',
+      'desc': 'Siaran video langsung melalui kamera CCTV untuk memantau kondisi sapi dan aktivitas di kandang secara real-time.',
+      'icon': Icons.videocam_outlined
+    },
+    {
+      'term': 'Verifikasi',
+      'desc': 'Proses pengecekan dan validasi secara berkala terhadap kondisi fisik sapi dan data peternak oleh tim InvestCow.',
+      'icon': Icons.verified_outlined
+    },
+    {
       'term': 'Bagi Hasil (Profit Sharing)',
-      'desc': 'Sistem distribusi keuntungan antara investor dan peternak. InvestCow menerapkan dua skema: (1) Skema Investasi: 70% Investor / 30% Peternak untuk investasi nominal. (2) Skema Kepemilikan Utuh: 90% Investor / 10% Peternak untuk pembelian sapi secara utuh (>= 1 ekor) sebagai biaya jasa pemeliharaan.',
+      'desc': 'Sistem distribusi keuntungan antara investor dan peternak. InvestCow menerapkan dua skema:\n• Skema Investasi (Fraksional): 70% Investor / 30% Peternak.\n• Skema Kepemilikan Utuh: 90% Investor / 10% Peternak.',
       'icon': Icons.handshake_outlined
     },
   ];
@@ -68,6 +133,8 @@ class _GlosariumPageState extends State<GlosariumPage> {
   @override
   void initState() {
     super.initState();
+    // Sort terms A-Z by term name
+    _allTerms.sort((a, b) => a['term'].toString().toLowerCase().compareTo(b['term'].toString().toLowerCase()));
     _filteredTerms = _allTerms;
   }
 

@@ -8,7 +8,8 @@ import '../services/api_client.dart';
 import '../services/auth_service.dart';
 
 class CctvPage extends StatefulWidget {
-  const CctvPage({super.key});
+  final String? filter;
+  const CctvPage({super.key, this.filter});
 
   @override
   State<CctvPage> createState() => _CctvPageState();
@@ -57,10 +58,14 @@ class _CctvPageState extends State<CctvPage> {
 
   @override
   Widget build(BuildContext context) {
+    final displayCows = widget.filter == null 
+        ? _cows 
+        : _cows.where((c) => (c['name'] ?? '').toString().toLowerCase().contains(widget.filter!.toLowerCase())).toList();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F9),
       appBar: AppBar(
-        title: const Text('CCTV Monitoring Sapi'),
+        title: Text(widget.filter != null ? 'CCTV: ${widget.filter}' : 'CCTV Monitoring Sapi'),
         backgroundColor: Colors.cyan[700],
         foregroundColor: Colors.white,
         elevation: 0,
@@ -81,9 +86,9 @@ class _CctvPageState extends State<CctvPage> {
               children: [
                 Icon(Icons.live_tv, color: Colors.red[700], size: 20),
                 const SizedBox(width: 8),
-                const Text(
-                  'Monitoring Kandang - Live Real-Time',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+                Text(
+                  widget.filter != null ? 'Hasil Pencarian: ${widget.filter}' : 'Monitoring Kandang - Live Real-Time',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
                 ),
                 const Spacer(),
                 Container(
@@ -105,8 +110,21 @@ class _CctvPageState extends State<CctvPage> {
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
                     ? Center(child: Text('Error: $_error'))
-                    : _cows.isEmpty
-                        ? const Center(child: Text('Tidak ada data kandang'))
+                    : displayCows.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.videocam_off, size: 64, color: Colors.grey[400]),
+                                const SizedBox(height: 16),
+                                Text('Tidak ada data kandang untuk "${widget.filter ?? ''}"'),
+                                if (widget.filter != null) ...[
+                                  const SizedBox(height: 16),
+                                  TextButton(onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => CctvPage())), child: const Text('Lihat Semua Kandang'))
+                                ]
+                              ],
+                            ),
+                          )
                         : GridView.builder(
                             padding: const EdgeInsets.all(12),
                             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -115,9 +133,9 @@ class _CctvPageState extends State<CctvPage> {
                               mainAxisSpacing: 12,
                               childAspectRatio: 0.85,
                             ),
-                            itemCount: _cows.length,
+                            itemCount: displayCows.length,
                             itemBuilder: (context, index) {
-                              final cow = _cows[index];
+                              final cow = displayCows[index];
                               return _buildCctvCard(context, cow);
                             },
                           ),

@@ -1,14 +1,14 @@
 const { pool } = require('./src/db');
 
 async function fixSpecificCams() {
-    console.log('🔧 Memperbaiki CCTV Sapi Madura dan Kandang Imou Real...');
+    console.log('🔧 Memperbaiki CCTV Sapi Madura dan Sapi Peranakan Ongole...');
     try {
         // We use IDs from working cams: 
         // Brahman (inDzgZjCxmQ) and Angus (dqcCOYtHtes)
 
         const updates = [
             { code: 'MADURA', url: 'youtube://inDzgZjCxmQ' },
-            { code: 'IMOU-01', url: 'youtube://dqcCOYtHtes' }
+            { code: 'PO-01', url: 'youtube://dqcCOYtHtes' }
         ];
 
         for (const up of updates) {
