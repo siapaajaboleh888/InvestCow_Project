@@ -53,16 +53,11 @@ class AuthService {
   Future<void> loginWithBackend(String email, String password,
       {bool rememberMe = false}) async {
     final client = ApiClient();
-    final uri = client.uri('/auth/login');
-    final res = await http
-        .post(uri, headers: client.jsonHeaders(), body: jsonEncode({
+    final res = await client.post('/auth/login', body: {
       'email': email,
       'password': password,
-    }));
+    });
 
-    if (res.statusCode != 200) {
-      throw Exception('Login gagal (${res.statusCode})');
-    }
     final data = jsonDecode(res.body) as Map<String, dynamic>;
 
     final prefs = await SharedPreferences.getInstance();
@@ -91,20 +86,13 @@ class AuthService {
     String? locale,
   }) async {
     final client = ApiClient();
-    final uri = client.uri('/auth/register');
-    final res = await http.post(
-      uri,
-      headers: client.jsonHeaders(),
-      body: jsonEncode({
-        'display_name': displayName,
-        'email': email,
-        'password': password,
-        'locale': locale,
-      }),
-    );
-    if (res.statusCode != 201) {
-      throw Exception('Registrasi gagal (${res.statusCode})');
-    }
+    final res = await client.post('/auth/register', body: {
+      'display_name': displayName,
+      'email': email,
+      'password': password,
+      'locale': locale,
+    });
+    
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyIsLoggedIn, true);
@@ -229,15 +217,10 @@ class AuthService {
     // Sync with backend
     final client = ApiClient();
     final token = await getToken();
-    final uri = client.uri('/auth/me');
-    await http.patch(
-      uri,
-      headers: client.jsonHeaders(token: token),
-      body: jsonEncode({
-        'display_name': name,
-        'email': email,
-      }),
-    );
+    await client.patch('/auth/me', token: token, body: {
+      'display_name': name,
+      'email': email,
+    });
   }
 
   /// Update foto profil (base64)
@@ -248,16 +231,7 @@ class AuthService {
     // Sync with backend
     final client = ApiClient();
     final token = await getToken();
-    final uri = client.uri('/auth/me');
-    final res = await http.patch(
-      uri,
-      headers: client.jsonHeaders(token: token),
-      body: jsonEncode({'profile_picture': base64Image}),
-    );
-    
-    if (res.statusCode != 200) {
-      throw Exception('Gagal menyimpan foto ke server');
-    }
+    await client.patch('/auth/me', token: token, body: {'profile_picture': base64Image});
   }
 
   /// Ambil foto profil (base64)
@@ -324,46 +298,23 @@ class AuthService {
   Future<void> deleteAccount() async {
     final token = await getToken();
     final client = ApiClient();
-    final uri = client.uri('/auth/me');
-
-    final res = await http.delete(
-      uri,
-      headers: client.jsonHeaders(token: token ?? ''),
-    );
-
-    if (res.statusCode != 204) {
-      throw Exception('Gagal menghapus akun (${res.statusCode})');
-    }
-
+    await client.delete('/auth/me', token: token ?? '');
     await logout();
   }
 
   Future<Map<String, dynamic>> getMe() async {
     final client = ApiClient();
     final token = await getToken();
-    final uri = client.uri('/auth/me');
-    final res = await http.get(uri, headers: client.jsonHeaders(token: token));
-    if (res.statusCode != 200) {
-      throw Exception('Gagal mengambil data user (${res.statusCode})');
-    }
+    final res = await client.get('/auth/me', token: token);
     return jsonDecode(res.body);
   }
 
   Future<void> topUp(double amount, {String? method}) async {
     final client = ApiClient();
     final token = await getToken();
-    final uri = client.uri('/auth/topup');
-    final res = await http.post(
-      uri,
-      headers: client.jsonHeaders(token: token),
-      body: jsonEncode({
-        'amount': amount,
-        'method': method,
-      }),
-    );
-    if (res.statusCode != 200) {
-      final data = jsonDecode(res.body);
-      throw Exception(data['message'] ?? 'Gagal top up (${res.statusCode})');
-    }
+    await client.post('/auth/topup', token: token, body: {
+      'amount': amount,
+      'method': method,
+    });
   }
 }

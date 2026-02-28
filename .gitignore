@@ -74,4 +74,7 @@ yt_search.html
 **/cctv_simulator/media/
 **/cctv_simulator/temp/
 
+# Production Logs
+backend/logs/
+
 

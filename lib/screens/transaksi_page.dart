@@ -31,30 +31,42 @@ class _TransaksiPageState extends State<TransaksiPage> with SingleTickerProvider
   }
 
   Future<void> _fetchAllData() async {
-    setState(() => _isLoading = true);
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
     try {
-      // 1. Fetch Investment History (Backend)
-      final invRes = await _trxService.listAll();
+      // Fetch ALL transactions from backend
+      final allTrx = await _trxService.listAll(limit: 200);
       
-      // 2. Fetch Wallet History (Local Storage from PembayaranPage)
-      final prefs = await SharedPreferences.getInstance();
-      final rawWallet = prefs.getString('kas_riwayat');
-      List<Map<String, dynamic>> localWallet = [];
-      if (rawWallet != null && rawWallet.isNotEmpty) {
-        localWallet = (jsonDecode(rawWallet) as List).cast<Map<String, dynamic>>();
+      final List<Map<String, dynamic>> investment = [];
+      final List<Map<String, dynamic>> wallet = [];
+
+      for (var t in allTrx) {
+        final type = t['type'].toString().toUpperCase();
+        if (type == 'BUY' || type == 'SELL') {
+          investment.add(t);
+        } else if (type == 'TOPUP' || type == 'WITHDRAW' || t['symbol'] == 'CASH') {
+          wallet.add(t);
+        } else {
+          // Fallback
+          investment.add(t);
+        }
       }
 
       if (mounted) {
         setState(() {
-          _investmentTrx = invRes;
-          _walletTrx = localWallet;
+          _investmentTrx = investment;
+          _walletTrx = wallet;
           _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = 'Gagal memuat data: ${e.toString()}';
           _isLoading = false;
         });
       }
@@ -77,6 +89,12 @@ class _TransaksiPageState extends State<TransaksiPage> with SingleTickerProvider
         backgroundColor: Colors.orange[700],
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchAllData,
+          )
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,
@@ -90,13 +108,33 @@ class _TransaksiPageState extends State<TransaksiPage> with SingleTickerProvider
       ),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
-        : TabBarView(
-            controller: _tabController,
-            children: [
-              _buildInvestmentList(),
-              _buildWalletList(),
-            ],
-          ),
+        : _error != null
+          ? _buildErrorPlaceholder()
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                _buildInvestmentList(),
+                _buildWalletList(),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildErrorPlaceholder() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+            const SizedBox(height: 16),
+            Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.redAccent)),
+            const SizedBox(height: 24),
+            ElevatedButton(onPressed: _fetchAllData, child: const Text('Coba Lagi')),
+          ],
+        ),
+      ),
     );
   }
 
@@ -113,8 +151,6 @@ class _TransaksiPageState extends State<TransaksiPage> with SingleTickerProvider
         
         final isBuy = type == 'buy';
         final isSell = type == 'sell';
-        final isTopUp = type == 'topup' || type == 'deposit';
-        final isWithdraw = type == 'withdraw';
 
         String title = '';
         bool isIncome = false;
@@ -136,23 +172,10 @@ class _TransaksiPageState extends State<TransaksiPage> with SingleTickerProvider
           amount = _toDouble(trx['amount']);
           if (amount == 0) amount = _toDouble(trx['quantity']) * _toDouble(trx['price']);
           label = '${_toDouble(trx['quantity']).toStringAsFixed(2)} Ekor';
-        } else if (isTopUp) {
-          title = 'Top Up Saldo';
-          isIncome = true;
-          icon = Icons.account_balance_wallet;
-          amount = _toDouble(trx['amount']);
-          label = trx['note'] ?? 'Sistem';
-        } else if (isWithdraw) {
-          title = 'Tarik Saldo';
-          isIncome = false;
-          icon = Icons.payments;
-          amount = _toDouble(trx['amount']);
-          label = 'Penarikan';
         } else {
           title = '${trx['type']} ${trx['symbol']}';
           isIncome = trx['type'].toString().contains('UP') || trx['type'].toString().contains('TOP');
           amount = _toDouble(trx['amount']);
-          if (amount == 0) amount = _toDouble(trx['quantity']) * _toDouble(trx['price']);
           label = trx['symbol'] == 'CASH' ? 'Tunai' : '${_toDouble(trx['quantity']).toStringAsFixed(2)} Ekor';
         }
         
@@ -193,16 +216,16 @@ class _TransaksiPageState extends State<TransaksiPage> with SingleTickerProvider
       itemCount: _walletTrx.length,
       itemBuilder: (context, index) {
         final t = _walletTrx[index];
-        final isIncome = t['jenis'] == 'Top Up';
-        final date = t['tanggal'] is String ? DateTime.parse(t['tanggal']) : t['tanggal'];
+        final type = t['type'].toString().toUpperCase();
+        final isIncome = type == 'TOPUP';
         
         return _buildTransactionCard(
-          title: t['jenis'] as String,
-          subtitle: DateFormat('dd MMM yyyy, HH:mm').format(date),
-          amount: _toDouble(t['nominal']),
+          title: type == 'TOPUP' ? 'Top Up Saldo' : (type == 'WITHDRAW' ? 'Tarik Saldo' : type),
+          subtitle: _formatDateTime(t['occurred_at']),
+          amount: _toDouble(t['amount']),
           isIncome: isIncome,
           icon: isIncome ? Icons.account_balance : Icons.payment,
-          label: t['metode'] ?? 'Sistem',
+          label: t['note'] ?? 'Sistem',
         );
       },
     );
@@ -217,7 +240,7 @@ class _TransaksiPageState extends State<TransaksiPage> with SingleTickerProvider
     required String label,
   }) {
     return Card(
-      elevation: 1,
+      elevation: 0.5,
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
@@ -249,12 +272,15 @@ class _TransaksiPageState extends State<TransaksiPage> with SingleTickerProvider
     return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp', decimalDigits: 0).format(val);
   }
 
-  String _formatDateTime(String dateStr) {
+  String _formatDateTime(dynamic occurredAt) {
+    if (occurredAt == null) return '-';
     try {
-      final dt = DateTime.parse(dateStr);
+      final DateTime dt = occurredAt is DateTime 
+          ? occurredAt 
+          : DateTime.parse(occurredAt.toString());
       return DateFormat('dd MMM yyyy, HH:mm').format(dt);
     } catch (e) {
-      return dateStr;
+      return occurredAt.toString();
     }
   }
 
@@ -298,8 +324,6 @@ class _TransaksiPageState extends State<TransaksiPage> with SingleTickerProvider
                 TextField(
                   controller: topUpCtrl,
                   keyboardType: TextInputType.number,
-                  // Reusing CurrencyInputFormatter is not easy as it's defined in pasar_modal_page, 
-                  // but we can just handle raw digits for now or define a simple one.
                   style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
                   decoration: InputDecoration(
                     prefixText: 'Rp ',
@@ -367,7 +391,7 @@ class _TransaksiPageState extends State<TransaksiPage> with SingleTickerProvider
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Masukkan nominal yang valid')));
                           return;
                         }
-                        await authService.topUp(amt);
+                        await authService.topUp(amt, method: selectedMethod);
                         if (!mounted) return;
                         Navigator.pop(context);
                         _fetchAllData();

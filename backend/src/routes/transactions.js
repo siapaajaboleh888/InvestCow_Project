@@ -8,7 +8,9 @@ const router = express.Router();
 router.get('/all', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { limit = 50, offset = 0 } = req.query;
+    let { limit = 50, offset = 0 } = req.query;
+    limit = Math.min(Number(limit), 100);
+    offset = Number(offset);
 
     const [rows] = await pool.query(
       `SELECT t.id, t.portfolio_id, t.type, t.symbol, t.quantity, t.price, t.occurred_at, t.note, t.created_at, t.amount
@@ -16,7 +18,7 @@ router.get('/all', authMiddleware, async (req, res) => {
        WHERE t.user_id = :uid
        ORDER BY t.occurred_at DESC, t.id DESC
        LIMIT :limit OFFSET :offset`,
-      { uid: userId, limit: Number(limit), offset: Number(offset) }
+      { uid: userId, limit, offset }
     );
     return res.json(rows);
   } catch (e) {

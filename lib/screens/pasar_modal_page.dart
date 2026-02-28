@@ -117,10 +117,16 @@ class _PasarModalPageState extends State<PasarModalPage> {
       print('Connected to Socket.io');
     });
 
-    socket!.on('price-update', (data) {
-      if (data != null && _selectedProduct != null) {
-        final productId = data['productId'].toString();
-        if (productId == _selectedProduct!['id'].toString()) {
+    socket!.on('price-update-batch', (dataList) {
+      if (dataList != null && dataList is List && _selectedProduct != null) {
+        final selectedId = _selectedProduct!['id'].toString();
+        // Temukan data untuk sapi yang sedang dipilih user
+        final data = dataList.firstWhere(
+          (item) => item['productId'].toString() == selectedId,
+          orElse: () => null,
+        );
+
+        if (data != null) {
           final newPrice = _toDouble(data['newPrice']);
           final candleData = data['candle'];
           
@@ -136,7 +142,7 @@ class _PasarModalPageState extends State<PasarModalPage> {
             _currentWeight = _toDouble(data['currentWeight']);
             _pricePerKg = _toDouble(data['pricePerKg']);
             
-            // Add or update latest candle
+            // Tambahkan data candle baru ke chart secara real-time
             if (candleData != null) {
               double h = _toDouble(candleData['high']);
               double l = _toDouble(candleData['low']);
@@ -157,7 +163,7 @@ class _PasarModalPageState extends State<PasarModalPage> {
               _candles.insert(0, newCandle);
               if (_candles.length > 200) _candles.removeLast();
 
-              // CRITICAL: If still only 1 candle, add dummy to prevent crash
+              // Pastikan chart tidak crash jika data masih sedikit
               if (_candles.length == 1) {
                  _candles.add(Candle(
                    date: newCandle.date.subtract(const Duration(minutes: 1)),

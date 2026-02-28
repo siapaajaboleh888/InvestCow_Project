@@ -7,6 +7,7 @@ import 'package:investcow_app/screens/akun_page.dart';
 import 'package:investcow_app/screens/login_page.dart';
 import 'package:investcow_app/screens/cctv_demo_page.dart';
 import 'package:investcow_app/services/auth_service.dart';
+import 'package:investcow_app/screens/maintenance_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -78,34 +79,51 @@ class _CustomSplashScreenState extends State<CustomSplashScreen>
 
     if (!mounted) return;
 
-    // Check login status
-    final isLoggedIn = await _authService.isLoggedIn();
+    try {
+      // Check login status
+      final isLoggedIn = await _authService.isLoggedIn();
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    // Navigate berdasarkan status login
-    if (isLoggedIn) {
-      // Jika sudah login, langsung ke MainScreen
+      // Navigate berdasarkan status login
+      if (isLoggedIn) {
+        // Jika sudah login, langsung ke MainScreen
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                const MainScreen(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+            transitionDuration: const Duration(milliseconds: 300),
+          ),
+        );
+      } else {
+        // Jika belum login, ke LoginPage
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                const LoginPage(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+            transitionDuration: const Duration(milliseconds: 300),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      // Navigate to Maintenance Page on error
       Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              const MainScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-          transitionDuration: const Duration(milliseconds: 300),
-        ),
-      );
-    } else {
-      // Jika belum login, ke LoginPage
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              const LoginPage(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-          transitionDuration: const Duration(milliseconds: 300),
+        MaterialPageRoute(
+          builder: (context) => MaintenancePage(
+            onRetry: () {
+              // Try again
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const CustomSplashScreen()),
+              );
+            },
+          ),
         ),
       );
     }

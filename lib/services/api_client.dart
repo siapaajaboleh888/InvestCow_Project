@@ -1,30 +1,26 @@
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:async';
 
 class ApiClient {
-  /// Base URL yang digunakan untuk koneksi ke backend.
-  /// Bisa di-override lewat --dart-define=BASE_URL=https://api.anda.com
   final String baseUrl;
+  final http.Client _httpClient = http.Client();
 
   ApiClient({String? overrideBaseUrl})
       : baseUrl = overrideBaseUrl ?? _defaultBaseUrl();
 
   static String _defaultBaseUrl() {
-    // 1. Cek jika ada override dari --dart-define (Sangat berguna untuk CI/CD Hosting)
     const defineUrl = String.fromEnvironment('BASE_URL');
     if (defineUrl.isNotEmpty) return defineUrl;
 
-    // 2. Jika mode Rilis (Production/Hosting)
     if (kReleaseMode) {
-      // GANTI ini ke URL hosting backend Anda nantinya
       return 'https://api.investcow.id'; 
     }
 
-    // 3. Jika mode Debug/Profile (Pengembangan)
     if (kIsWeb) {
       return 'http://localhost:8081';
     } else {
-      // Emulator Android (10.0.2.2) vs Physical Device (Gunakan IP Local PC Anda)
-      // Tips: Gunakan IP static laptop agar tidak berubah-ubah
       return 'http://192.168.1.111:8081'; 
     }
   }
@@ -32,7 +28,6 @@ class ApiClient {
   String get socketUrl => baseUrl;
 
   Uri uri(String path, [Map<String, dynamic>? query]) {
-    // Pastikan baseUrl tidak diakhiri / dan path dimulai /
     final cleanBase = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
     final cleanPath = path.startsWith('/') ? path : '/$path';
     
@@ -50,5 +45,84 @@ class ApiClient {
       headers['Authorization'] = 'Bearer $token';
     }
     return headers;
+  }
+
+  // MANAGED REQUEST METHODS
+  
+  Future<http.Response> get(String path, {String? token, Map<String, dynamic>? query}) async {
+    try {
+      final url = uri(path, query);
+      final response = await _httpClient.get(
+        url,
+        headers: jsonHeaders(token: token),
+      ).timeout(const Duration(seconds: 15));
+      
+      return _processResponse(response);
+    } on TimeoutException {
+      throw Exception('Server tidak merespon (Timeout). Periksa koneksi internet Anda.');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<http.Response> post(String path, {String? token, dynamic body}) async {
+    try {
+      final url = uri(path);
+      final response = await _httpClient.post(
+        url,
+        headers: jsonHeaders(token: token),
+        body: body != null ? jsonEncode(body) : null,
+      ).timeout(const Duration(seconds: 15));
+      
+      return _processResponse(response);
+    } on TimeoutException {
+      throw Exception('Koneksi terputus (Timeout).');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<http.Response> patch(String path, {String? token, dynamic body}) async {
+    try {
+      final url = uri(path);
+      final response = await _httpClient.patch(
+        url,
+        headers: jsonHeaders(token: token),
+        body: body != null ? jsonEncode(body) : null,
+      ).timeout(const Duration(seconds: 15));
+      
+      return _processResponse(response);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<http.Response> delete(String path, {String? token}) async {
+    try {
+      final url = uri(path);
+      final response = await _httpClient.delete(
+        url,
+        headers: jsonHeaders(token: token),
+      ).timeout(const Duration(seconds: 15));
+      
+      return _processResponse(response);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  http.Response _processResponse(http.Response response) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return response;
+    }
+    
+    // Extract error message from backend if available
+    String? message;
+    try {
+      final data = jsonDecode(response.body);
+      message = data['message'];
+    } catch (_) {}
+    
+    throw Exception(message ?? 'Terjadi kesalahan sistem (${response.statusCode})');
   }
 }
