@@ -199,11 +199,21 @@ router.get('/', async (req, res) => {
                             logo: 'A',
                             logoColor: qty >= 0.99 ? '#FFD700' : '#00C853', // Gold color for whole cow owner
                             title: `Analisis ROI ${productName} (${schemeName})`,
-                            content: `Berdasarkan kepemilikan Anda sebanyak ${qty.toFixed(0)} ekor ${productName}:\n\n` +
+                            content: `📊 RUMUS & KESEPAKATAN INVESTASI:\n` +
+                                `✅ UNTUNG: (Harga Jual - Modal) x 70% Investor / 30% Upah Peternak.\n` +
+                                `❌ RUGI: Jika harga pasar turun, nilai aset dikembalikan berdasarkan perkalian % kepemilikan saham pada harga jual saat itu.\n\n` +
+                                `Analisis Proyeksi Portofolio ${productName} Anda:\n\n` +
+                                `📈 SKENARIO KEUNTUNGAN (Optimis):\n` +
                                 `• Estimasi Capital Gain: ${formatIDR(netProfitInvestor)}\n` +
-                                `• Proyeksi ROI Tahunan: ${roiPercent.toFixed(1)}% - ${(roiPercent + 4).toFixed(1)}%\n` +
-                                `• Estimasi Harga Jual Target: ${formatIDR(totalTargetValue)}\n\n` +
-                                `*Dihitung berdasarkan ${schemeName} (Profit Share ${Math.round(ratio * 100)}% Investor / ${Math.round((1 - ratio) * 100)}% Peternak).`,
+                                `• Proyeksi ROI: ${roiPercent.toFixed(1)}% - ${(roiPercent + 5).toFixed(1)}%\n` +
+                                `• Estimasi Hasil Jual: ${formatIDR(totalTargetValue)}\n\n` +
+                                `📉 SKENARIO RISIKO (Pesimis - Turun 10%):\n` +
+                                `• Potensi Penurunan Nilai: -${formatIDR(investment * 0.1)}\n` +
+                                `• Catatan: Dalam investasi aset biologis (sapi), penurunan harga daging global atau biaya pakan bisa menekan imbal hasil.\n\n` +
+                                `💡 KESIMPULAN ANALIS:\n` +
+                                `Berdasarkan kepemilikan ${qty.toFixed(2)} unit Anda, ${schemeName} memberikan proteksi bagi hasil optimal (${Math.round(ratio * 100)}% porsi Investor). ` +
+                                `Sangat disarankan untuk memantau CCTV & Laporan Kesehatan secara rutin melalui aplikasi InvestCow.\n\n` +
+                                `⚠️ PROTEKSI: Aset Anda dilindungi oleh Asuransi Ternak pihak ketiga untuk risiko kematian/kecelakaan.`,
                             url: 'https://investcow.id/analysis/roi'
                         });
                     }

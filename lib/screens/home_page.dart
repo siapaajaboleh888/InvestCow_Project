@@ -765,14 +765,25 @@ class _HomePageState extends State<HomePage> {
                               'logoColor': '#4CAF50',
                               'date': 'Target 2026',
                               'time': 'Proyeksi',
-                              'content': 'Berdasarkan portofolio aktif Anda:\n\n$breakdown\n'
-                                  '• Total Estimasi Capital Gain: ${_formatCurrency(estProfit.toInt())}\n'
-                                  '• Proyeksi ROI Tahunan: 18.5% - 22.1%\n'
-                                  '• Estimasi Harga Jual Target: ${_formatCurrency((_totalInvestmentValue * 1.2).toInt())}\n\n'
-                                  'Aturan Kepemilikan Unit (Contoh 1.73 Unit):\n'
-                                  'Jika Anda membeli atau menjual 1.73 unit, maka SELURUH jumlah tersebut (termasuk desimalnya) dianggap sebagai Kepemilikan Utuh. '
-                                  'Artinya, rasio bagi hasil yang berlaku adalah 90% Investor / 10% Peternak untuk total 1.73 unit tersebut.\n\n'
-                                  'Bonus Ratio 90/10 berlaku otomatis selama jumlah transaksi Anda ≥ 1.0 unit.',
+                            'content': '📊 RUMUS & KESEPAKATAN INVESTASI:\n'
+                                  '✅ UNTUNG: (Harga Jual - Modal) x 70% Investor / 30% Upah Peternak.\n'
+                                  '❌ RUGI: Jika harga pasar turun, nilai aset dikembalikan berdasarkan perkalian % kepemilikan saham pada harga jual saat itu.\n\n'
+                                  'Analisis Proyeksi Masa Depan Portofolio Anda:\n\n'
+                                  '$breakdown\n'
+                                  '📈 SKENARIO KEUNTUNGAN (Target):\n'
+                                  '• Estimasi Capital Gain: ${_formatCurrency(estProfit.toInt())}\n'
+                                  '• Proyeksi ROI Tahunan: 18.2% - 24.5%\n'
+                                  '• Estimasi Hasil Jual: ${_formatCurrency((_totalInvestmentValue + estProfit).toInt())}\n\n'
+                                  '📉 SKENARIO RISIKO (Estimasi Kerugian 10%):\n'
+                                  '• Potensi Penurunan Nilai: -${_formatCurrency((_totalInvestmentValue * 0.1).toInt())}\n'
+                                  '• Nilai Portofolio Akhir: ${_formatCurrency((_totalInvestmentValue * 0.9).toInt())}\n'
+                                  '• Catatan: Dalam investasi aset riil, risiko penurunan harga pasar ditanggung oleh pemilik unit sesuai porsi kepemilikan.\n\n'
+                                  '💡 PENJELASAN ROI & BAGI HASIL:\n'
+                                  'ROI (Return on Investment) dihitung dari harga jual dikurangi modal pakan & operasional. Kami menggunakan "Incentive Scheme":\n'
+                                  '1. Skema Kepemilikan Utuh (≥ 1 Unit): Bagi hasil 90% Investor / 10% Peternak.\n'
+                                  '2. Skema Investasi Unit (< 1 Unit): Bagi hasil 70% Investor / 30% Peternak.\n\n'
+                                  '⚠️ MITIGASI & PERLINDUNGAN:\n'
+                                  'Setiap unit investasi di InvestCow dilindungi Asuransi Ternak (Jasindo/Mandiri) untuk risiko kematian. Monitoring CCTV + Tim Medis 24/7 memastikan kesehatan aset Anda tetap optimal.',
                             }),
                           ),
                         );
