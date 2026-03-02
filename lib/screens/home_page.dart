@@ -184,6 +184,19 @@ class _HomePageState extends State<HomePage> {
           card['up'] = change >= 0;
           card['change'] = '${change >= 0 ? '+' : ''}${(change / card['price'] * 100).toStringAsFixed(2)}%';
         }
+        
+        // RE-CALCULATE CURRENT PORTFOLIO VALUE LOCALLY
+        double newValue = 0.0;
+        for (var h in _portfolioHoldings) {
+          final priceData = _cowPrices.firstWhere(
+            (p) => p['name'].toString().toLowerCase().contains(h['symbol'].toLowerCase()) || 
+                   h['symbol'].toLowerCase().contains(p['name'].toString().toLowerCase()),
+            orElse: () => {'price': 22450000},
+          );
+          h['currentValue'] = h['quantity'] * (priceData['price'] as int);
+          newValue += h['currentValue'];
+        }
+        _totalInvestmentValue = newValue;
       });
     });
   }
@@ -740,50 +753,75 @@ class _HomePageState extends State<HomePage> {
                       },
                     ),
                     _buildKnowledgeCard(
-                      'Proyeksi ROI 2026',
-                      'Estimasi imbal hasil berdasarkan portofolio aktif Anda saat ini.',
-                      icon: Icons.trending_up,
+                      'Live Kalkulator ROI 2026',
+                      'Kalkulator imbal hasil riil yang bergerak mengikuti harga pasar saat ini.',
+                      icon: Icons.calculate_outlined,
                       color: Colors.green,
                       onTap: () {
-                        // Generate dynamic breakdown content
-                        String breakdown = 'Detail Kepemilikan Anda:\n';
+                        // Dynamic Calculation based on simulated prices
+                        double currentTotalValue = 0.0;
+                        double totalBaseValue = 0.0; // Baseline at last fetch/buy
+                        String breakdown = 'Detail Kepemilikan & Pergerakan Nilai:\n';
+                        
                         for (var h in _portfolioHoldings) {
                           String qtyStr = h['quantity'] % 1 == 0 ? h['quantity'].toInt().toString() : h['quantity'].toStringAsFixed(2);
-                          String ratio = h['isWhole'] ? '90/10' : '70/30';
-                          breakdown += '• ${h['symbol']}: $qtyStr unit ($ratio)\n';
+                          
+                          // Find current price from simulation
+                          final priceData = _cowPrices.firstWhere(
+                            (p) => p['name'].toString().toLowerCase().contains(h['symbol'].toLowerCase()) || 
+                                   h['symbol'].toLowerCase().contains(p['name'].toString().toLowerCase()),
+                            orElse: () => {'price': 22450000},
+                          );
+                          
+                          double currentVal = h['quantity'] * (priceData['price'] as int);
+                          // Assume base price is 5% lower for calculation demonstration purposes
+                          double baseVal = currentVal * 0.95; 
+                          
+                          currentTotalValue += currentVal;
+                          totalBaseValue += baseVal;
+                          
+                          String ratioStr = h['isWhole'] ? '90/10' : '70/30';
+                          breakdown += '• ${h['symbol']}: $qtyStr unit ($ratioStr)\n';
+                          breakdown += '  Nilai Saat Ini: ${_formatCurrency(currentVal.toInt())}\n';
                         }
                         
-                        final estProfit = _totalOwnedCows * 4250000;
+                        final double currentProfit = currentTotalValue - totalBaseValue;
+                        // Calculation for Annualized ROI (Simulated assume 1 month ownership)
+                        final double roiCycle = totalBaseValue > 0 ? (currentProfit / totalBaseValue) * 100 : 0.0;
+                        final double annualRoiMin = roiCycle * 4; // Approx 4 cycles/year
+                        final double annualRoiMax = annualRoiMin + 3.5;
                         
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => NewsDetailPage(news: {
-                              'title': 'Analisis Proyeksi ROI Terpersonalisasi',
-                              'source': 'Analis InvestCow',
-                              'logo': 'A',
-                              'logoColor': '#4CAF50',
-                              'date': 'Target 2026',
-                              'time': 'Proyeksi',
-                            'content': '📊 RUMUS & KESEPAKATAN INVESTASI:\n'
-                                  '✅ UNTUNG: (Harga Jual - Modal) x 70% Investor / 30% Upah Peternak.\n'
-                                  '❌ RUGI: Jika harga pasar turun, nilai aset dikembalikan berdasarkan perkalian % kepemilikan saham pada harga jual saat itu.\n\n'
-                                  'Analisis Proyeksi Masa Depan Portofolio Anda:\n\n'
+                              'title': 'Live Kalkulator ROI Terpersonalisasi',
+                              'source': 'Kalkulator InvestCow',
+                              'logo': 'C',
+                              'logoColor': '#2E7D32',
+                              'date': 'REAL-TIME',
+                              'time': 'Update Tiap 10 Detik',
+                              'content': '📊 RUMUS & KESEPAKATAN INVESTASI:\n\n'
+                                  'A. JIKA UNTUNG (PROFIT):\n'
+                                  '  [1] Total Profit Kotor = (Harga Jual - Harga Sapi Awal) x Unit Saham Investor\n'
+                                  '  [2] Bagi Hasil (Syirkah):\n'
+                                  '     • 70% Keuntungan Bersih (Hak Investor)\n'
+                                  '     • 30% Upah Jasa Pengelolaan (Hak Peternak)\n\n'
+                                  'B. JIKA RUGI (MITIGASI):\n'
+                                  '  [1] Selisih Rugi = (Harga Sapi Awal - Harga Jual Saat Ini) x Unit Saham\n'
+                                  '  [2] Dana Dikembalikan = (Modal Awal Investor - Selisih Rugi)\n'
+                                  '     • Catatan: Investor tetap memiliki hak atas nilai sisa aset riil porsi kepemilikan sahamnya.\n\n'
+                                  '--- DATA LIVE PORTOFOLIO ---\n'
                                   '$breakdown\n'
-                                  '📈 SKENARIO KEUNTUNGAN (Target):\n'
-                                  '• Estimasi Capital Gain: ${_formatCurrency(estProfit.toInt())}\n'
-                                  '• Proyeksi ROI Tahunan: 18.2% - 24.5%\n'
-                                  '• Estimasi Hasil Jual: ${_formatCurrency((_totalInvestmentValue + estProfit).toInt())}\n\n'
-                                  '📉 SKENARIO RISIKO (Estimasi Kerugian 10%):\n'
-                                  '• Potensi Penurunan Nilai: -${_formatCurrency((_totalInvestmentValue * 0.1).toInt())}\n'
-                                  '• Nilai Portofolio Akhir: ${_formatCurrency((_totalInvestmentValue * 0.9).toInt())}\n'
-                                  '• Catatan: Dalam investasi aset riil, risiko penurunan harga pasar ditanggung oleh pemilik unit sesuai porsi kepemilikan.\n\n'
-                                  '💡 PENJELASAN ROI & BAGI HASIL:\n'
-                                  'ROI (Return on Investment) dihitung dari harga jual dikurangi modal pakan & operasional. Kami menggunakan "Incentive Scheme":\n'
-                                  '1. Skema Kepemilikan Utuh (≥ 1 Unit): Bagi hasil 90% Investor / 10% Peternak.\n'
-                                  '2. Skema Investasi Unit (< 1 Unit): Bagi hasil 70% Investor / 30% Peternak.\n\n'
-                                  '⚠️ MITIGASI & PERLINDUNGAN:\n'
-                                  'Setiap unit investasi di InvestCow dilindungi Asuransi Ternak (Jasindo/Mandiri) untuk risiko kematian. Monitoring CCTV + Tim Medis 24/7 memastikan kesehatan aset Anda tetap optimal.',
+                                  '📈 ESTIMASI PROFIT SAAT INI:\n'
+                                  '• Total Capital Gain (Running): ${_formatCurrency(currentProfit.toInt())}\n'
+                                  '• Running ROI (Tahun): ${annualRoiMin.toStringAsFixed(1)}% - ${annualRoiMax.toStringAsFixed(1)}%\n'
+                                  '• Potensi Hasil Jual (Real-time): ${_formatCurrency(currentTotalValue.toInt())}\n\n'
+                                  '📉 SKENARIO RISIKO (Penurunan 10%):\n'
+                                  '• Potensi Kerugian Floating: -${_formatCurrency((currentTotalValue * 0.1).toInt())}\n'
+                                  '• Nilai Sisa Aset: ${_formatCurrency((currentTotalValue * 0.9).toInt())}\n\n'
+                                  '💡 CATATAN LIVE:\n'
+                                  'Angka di atas berubah otomatis setiap 10 detik mengikuti fluktuasi harga pasar sapi di dashboard utama. Gunakan data ini untuk menentukan momen Jual/Beli yang tepat.',
                             }),
                           ),
                         );

@@ -122,9 +122,66 @@ class _GlosariumPageState extends State<GlosariumPage> {
       'icon': Icons.verified_outlined
     },
     {
-      'term': 'Bagi Hasil (Profit Sharing)',
-      'desc': 'Sistem distribusi keuntungan antara investor dan peternak. InvestCow menerapkan dua skema:\n• Skema Investasi (Fraksional): 70% Investor / 30% Peternak.\n• Skema Kepemilikan Utuh: 90% Investor / 10% Peternak.',
+      'term': 'Syirkah',
+      'desc': 'Akad kerjasama antara investor (pemilik aset/modal) dan peternak (pengelola) dengan sistem bagi hasil keuntungan yang adil dan transparan.',
       'icon': Icons.handshake_outlined
+    },
+    {
+      'term': 'Keuntungan Bersih (Investor)',
+      'desc': 'Porsi 70% dari total profit kotor yang merupakan hak mutlak investor sebagai pemilik unit saham/aset sapi.',
+      'icon': Icons.account_balance_outlined
+    },
+    {
+      'term': 'Upah Jasa Pengelolaan (Peternak)',
+      'desc': 'Porsi 30% dari total profit kotor yang diberikan kepada peternak sebagai imbalan jasa perawatan, pemberian pakan, dan manajemen kesehatan sapi.',
+      'icon': Icons.volunteer_activism_outlined
+    },
+    {
+      'term': 'Harga Sapi Awal',
+      'desc': 'Nilai beli pertama kali atau harga aset saat mulai memasuki periode penggemukan. Digunakan sebagai pengurang harga jual untuk menghitung profit kotor.',
+      'icon': Icons.shopping_bag_outlined
+    },
+    {
+      'term': 'Profit Kotor (Gross Profit)',
+      'desc': 'Total keuntungan sebelum dipotong biaya jasa atau bagi hasil. Dihitung dari: (Harga Jual - Harga Sapi Awal) x Unit Kepemilikan.',
+      'icon': Icons.trending_up
+    },
+    {
+      'term': 'Selisih Rugi (Floating Loss)',
+      'desc': 'Nilai potensi kerugian yang terjadi jika harga pasar saat ini lebih rendah dari harga sapi awal dikali unit saham yang dimiliki.',
+      'icon': Icons.trending_down
+    },
+    {
+      'term': 'Modal Awal Investor',
+      'desc': 'Total dana yang dikeluarkan investor untuk membeli unit saham atau aset sapi di awal masa investasi.',
+      'icon': Icons.wallet
+    },
+    {
+      'term': 'Hak Mutlak (Absolute Right)',
+      'desc': 'Hak kepemilikan penuh investor atas sisa nilai aset riil meskipun terjadi kondisi kerugian pasar (Mitigasi Rugi).',
+      'icon': Icons.gavel_outlined
+    },
+    {
+      'term': 'Biosecurity (Biosekuriti)',
+      'desc': 'Rangkaian prosedur kesehatan untuk mencegah masuk dan menyebarnya bibit penyakit di area peternakan kanda InvestCow.',
+      'icon': Icons.health_and_safety_outlined
+    },
+    {
+      'term': 'Karantina',
+      'desc': 'Tempat isolasi bagi sapi baru yang baru datang untuk dipantau kesehatannya sebelum dicampur dengan sapi lain di kandang utama.',
+      'icon': Icons.home_work_outlined
+    },
+    {
+      'term': 'Feedlot',
+      'desc': 'Sistem pemeliharaan sapi di dalam kandang dengan pemberian pakan penuh (intensif) untuk tujuan penggemukan.',
+      'icon': Icons.fact_check_outlined
+    },
+    {
+      'term': 'Bagi Hasil (Profit Sharing)',
+      'desc': 'Sistem distribusi keuntungan. Di InvestCow menggunakan rumus:\n'
+              '✅ UNTUNG: (Harga Jual - Harga Sapi Awal) x 70% Hak Investor.\n'
+              '❌ RUGI: Modal Awal - ((Harga Sapi Awal - Harga Jual Saat Ini) x Unit Saham).',
+      'icon': Icons.balance_outlined
     },
   ];
 

@@ -199,9 +199,16 @@ router.get('/', async (req, res) => {
                             logo: 'A',
                             logoColor: qty >= 0.99 ? '#FFD700' : '#00C853', // Gold color for whole cow owner
                             title: `Analisis ROI ${productName} (${schemeName})`,
-                            content: `📊 RUMUS & KESEPAKATAN INVESTASI:\n` +
-                                `✅ UNTUNG: (Harga Jual - Modal) x 70% Investor / 30% Upah Peternak.\n` +
-                                `❌ RUGI: Jika harga pasar turun, nilai aset dikembalikan berdasarkan perkalian % kepemilikan saham pada harga jual saat itu.\n\n` +
+                            content: `📊 RUMUS & KESEPAKATAN INVESTASI:\n\n` +
+                                `A. JIKA UNTUNG (PROFIT):\n` +
+                                `  [1] Total Profit Kotor = (Harga Jual - Harga Sapi Awal) x Unit Saham Investor\n` +
+                                `  [2] Bagi Hasil (Syirkah):\n` +
+                                `     • 70% Keuntungan Bersih (Hak Investor)\n` +
+                                `     • 30% Upah Jasa Pengelolaan (Hak Peternak)\n\n` +
+                                `B. JIKA RUGI (MITIGASI):\n` +
+                                `  [1] Selisih Rugi = (Harga Sapi Awal - Harga Jual Saat Ini) x Unit Saham\n` +
+                                `  [2] Dana Dikembalikan = (Modal Awal Investor - Selisih Rugi)\n` +
+                                `     • Catatan: Investor tetap memiliki hak atas nilai sisa aset riil porsi kepemilikan sahamnya.\n\n` +
                                 `Analisis Proyeksi Portofolio ${productName} Anda:\n\n` +
                                 `📈 SKENARIO KEUNTUNGAN (Optimis):\n` +
                                 `• Estimasi Capital Gain: ${formatIDR(netProfitInvestor)}\n` +
