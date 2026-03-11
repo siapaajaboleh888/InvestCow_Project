@@ -72,7 +72,7 @@ router.get('/products', authMiddleware, adminOnly, async (req, res) => {
 // Create product
 router.post('/products', authMiddleware, adminOnly, async (req, res) => {
   try {
-    const { name, ticker_code, description, price, target_price, quota, image_url, market_sentiment, investor_share_ratio } = req.body || {};
+    const { name, ticker_code, description, price, target_price, quota, image_url, cctv_url, market_sentiment, investor_share_ratio } = req.body || {};
     if (!name || price == null) {
       return res.status(400).json({ message: 'Missing name or price' });
     }
@@ -93,10 +93,16 @@ router.post('/products', authMiddleware, adminOnly, async (req, res) => {
     );
     const id = result.insertId;
     const [rows] = await pool.query(
-      'SELECT id, name, ticker_code, description, price, prev_price, quota, image_url, cctv_url FROM products WHERE id = :id',
+      'SELECT id, name, ticker_code, description, price, prev_price, target_price, quota, image_url, cctv_url, market_sentiment, current_weight, daily_growth_rate, price_per_kg, health_score FROM products WHERE id = :id',
       { id },
     );
-    return res.status(201).json(rows[0]);
+
+    const newProduct = rows[0];
+    if (req.io) {
+      req.io.emit('product-updated', newProduct);
+    }
+
+    return res.status(201).json(newProduct);
   } catch (e) {
     console.error('create product error', e);
     return res.status(500).json({ message: 'Server error' });
@@ -107,27 +113,45 @@ router.post('/products', authMiddleware, adminOnly, async (req, res) => {
 router.put('/products/:id', authMiddleware, adminOnly, async (req, res) => {
   try {
     const id = req.params.id;
-    const { name, ticker_code, description, price, target_price, quota, image_url, market_sentiment, investor_share_ratio } = req.body || {};
+    // Get old data to preserve or move
+    const [oldRows] = await pool.query('SELECT * FROM products WHERE id = :id', { id });
+    const oldProduct = oldRows.length > 0 ? oldRows[0] : null;
 
-    // Get old price to move it to prev_price
-    const [oldRows] = await pool.query('SELECT price FROM products WHERE id = :id', { id });
-    const oldPrice = oldRows.length > 0 ? oldRows[0].price : price;
+    if (!oldProduct) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const { 
+      name, 
+      ticker_code, 
+      description, 
+      price, 
+      target_price, 
+      quota, 
+      image_url, 
+      cctv_url, 
+      market_sentiment, 
+      investor_share_ratio 
+    } = req.body || {};
+
+    const finalPrice = price !== undefined ? price : oldProduct.price;
+    const oldPrice = oldProduct.price;
 
     const [result] = await pool.query(
       'UPDATE products SET name = :name, ticker_code = :ticker_code, description = :description, price = :price, prev_price = :prev_price, target_price = :target_price, quota = :quota, image_url = :image_url, cctv_url = :cctv_url, market_sentiment = :market_sentiment, investor_share_ratio = :investor_share_ratio WHERE id = :id',
       {
         id,
-        name,
-        ticker_code,
-        description: description || null,
-        price,
-        prev_price: oldPrice, // Simpan harga lama sebagai referensi % perubahan
-        target_price: target_price || null,
-        quota,
-        image_url: image_url || null,
-        cctv_url: cctv_url || null,
-        market_sentiment: market_sentiment || null,
-        investor_share_ratio: investor_share_ratio !== undefined ? investor_share_ratio : 0.7000,
+        name: name || oldProduct.name,
+        ticker_code: ticker_code || oldProduct.ticker_code,
+        description: description !== undefined ? description : oldProduct.description,
+        price: finalPrice,
+        prev_price: oldPrice, 
+        target_price: target_price !== undefined ? target_price : oldProduct.target_price,
+        quota: quota !== undefined ? quota : oldProduct.quota,
+        image_url: image_url !== undefined ? image_url : oldProduct.image_url,
+        cctv_url: cctv_url !== undefined ? cctv_url : oldProduct.cctv_url,
+        market_sentiment: market_sentiment !== undefined ? market_sentiment : oldProduct.market_sentiment,
+        investor_share_ratio: investor_share_ratio !== undefined ? investor_share_ratio : oldProduct.investor_share_ratio,
       },
     );
 
@@ -142,36 +166,39 @@ router.put('/products/:id', authMiddleware, adminOnly, async (req, res) => {
       {
         id,
         open: oldPrice,
-        high: Math.max(oldPrice, price),
-        low: Math.min(oldPrice, price),
-        close: price,
+        high: Math.max(parseFloat(oldPrice), parseFloat(finalPrice)),
+        low: Math.min(parseFloat(oldPrice), parseFloat(finalPrice)),
+        close: finalPrice,
         volume: Math.floor(Math.random() * 100), // simulated volume
       },
     );
 
     const [rows] = await pool.query(
-      'SELECT id, name, description, price, quota, image_url, cctv_url FROM products WHERE id = :id',
+      'SELECT id, name, ticker_code, description, price, prev_price, target_price, quota, image_url, cctv_url, market_sentiment, investor_share_ratio, current_weight, daily_growth_rate, price_per_kg, health_score FROM products WHERE id = :id',
       { id },
     );
 
+    const updatedProduct = rows[0];
     // Emit real-time update via socket.io
     if (req.io) {
+      req.io.emit('product-updated', updatedProduct);
+      
       req.io.emit('price-update', {
         productId: id,
-        newPrice: price,
+        newPrice: finalPrice,
         marketSentiment: market_sentiment || null,
         timestamp: new Date().toISOString(),
         candle: {
           open: oldPrice,
-          high: Math.max(oldPrice, price),
-          low: Math.min(oldPrice, price),
-          close: price,
+          high: Math.max(parseFloat(oldPrice), parseFloat(finalPrice)),
+          low: Math.min(parseFloat(oldPrice), parseFloat(finalPrice)),
+          close: finalPrice,
           timestamp: new Date().toISOString(),
         },
       });
     }
 
-    return res.json(rows[0]);
+    return res.json(updatedProduct);
   } catch (e) {
     console.error('update product error', e);
     return res.status(500).json({ message: 'Server error' });

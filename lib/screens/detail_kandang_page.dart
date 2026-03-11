@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'cctv_page.dart';
 
 class DetailKandangPage extends StatelessWidget {
@@ -52,18 +54,22 @@ class DetailKandangPage extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            barn['name'],
-                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            'Kode: ${barn['ticker']}',
-                            style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                          ),
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              barn['name'],
+                              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
+                            Text(
+                              'Kode: ${barn['ticker']}',
+                              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                            ),
+                          ],
+                        ),
                       ),
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -132,17 +138,36 @@ class DetailKandangPage extends StatelessWidget {
                       title: const Text('Live CCTV Kandang'),
                       subtitle: const Text('Lihat kondisi sapi secara real-time'),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        // Launch CCTV Dialog
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (context) => CctvStreamDialog(cow: {
-                            'name': barn['name'],
-                            'ticker_code': barn['ticker'],
-                            'cctv_url': barn['cctv_url'],
-                          }),
-                        );
+                      onTap: () async {
+                        final String? cctvUrl = barn['cctv_url']?.toString();
+                        if (cctvUrl == null || cctvUrl.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('CCTV tidak tersedia untuk kandang ini')),
+                          );
+                          return;
+                        }
+
+                        if (kIsWeb) {
+                          showDialog(
+                            context: context,
+                            builder: (context) => CctvStreamDialog(cow: {
+                              'name': barn['name'],
+                              'ticker_code': barn['ticker'],
+                              'cctv_url': barn['cctv_url'],
+                            }),
+                          );
+                        } else {
+                          // Buka langsung di mobile dengan inAppBrowserView
+                          String finalUrl = cctvUrl;
+                          if (cctvUrl.startsWith('youtube://')) {
+                            final id = cctvUrl.replaceFirst('youtube://', '');
+                            finalUrl = 'https://www.youtube.com/watch?v=$id';
+                          }
+                          final uri = Uri.parse(finalUrl);
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+                          }
+                        }
                       },
                     ),
                   ),

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import 'detail_kandang_page.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 class KandangPage extends StatefulWidget {
   const KandangPage({super.key});
@@ -21,6 +22,7 @@ class _KandangPageState extends State<KandangPage> {
   String? _error;
   String _search = '';
   String _occFilter = 'Semua';
+  IO.Socket? socket;
 
   double get totalCows => _barns.fold(0.0, (p, e) => p + (double.tryParse(e['occupied'].toString()) ?? 0.0));
   int get totalBarns => _barns.where((e) => (double.tryParse(e['occupied'].toString()) ?? 0.0) >= 0.01).length;
@@ -28,7 +30,49 @@ class _KandangPageState extends State<KandangPage> {
   @override
   void initState() {
     super.initState();
+    _initSocket();
     _load();
+  }
+
+  void _initSocket() {
+    socket = IO.io(_client.socketUrl, IO.OptionBuilder()
+      .setTransports(['websocket'])
+      .disableAutoConnect()
+      .build());
+
+    socket!.on('product-updated', (data) {
+      if (data != null && data is Map && mounted) {
+        // Trigger re-load to catch mapping changes without full reload 
+        // Or manually update the specific barn in list
+        final updatedId = data['id'].toString();
+        setState(() {
+           // We could manually update specific item for speed
+           int idx = _barns.indexWhere((b) => b['name'] == data['name'] || b['ticker'] == data['ticker_code']);
+           if (idx != -1) {
+             _barns[idx] = {
+                ..._barns[idx],
+                'name': data['name'],
+                'ticker': data['ticker_code'],
+                'price': data['price'],
+                'weight': data['current_weight'],
+                'growth': data['daily_growth_rate'],
+                'cctv_url': data['cctv_url'],
+                'image_url': data['image_url'],
+                'health': data['health_score'] ?? 100,
+             };
+           } else {
+             _load(); // If new product, just reload list
+           }
+        });
+      }
+    });
+    socket!.connect();
+  }
+
+  @override
+  void dispose() {
+    socket?.disconnect();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -149,9 +193,12 @@ class _KandangPageState extends State<KandangPage> {
                         const SizedBox(height: 12),
                         const Text('Total Sapi Dimiliki', style: TextStyle(fontSize: 20, color: Colors.white70)),
                         const SizedBox(height: 8),
-                        Text(
-                          totalCows % 1 == 0 ? totalCows.toInt().toString() : totalCows.toStringAsFixed(2),
-                          style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            totalCows % 1 == 0 ? totalCows.toInt().toString() : totalCows.toStringAsFixed(2),
+                            style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Text('Kategori Kandang: $totalBarns', style: const TextStyle(fontSize: 16, color: Colors.white70)),
@@ -234,6 +281,8 @@ class _KandangPageState extends State<KandangPage> {
                           title: Text(
                             b['name'] as String,
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
                           ),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

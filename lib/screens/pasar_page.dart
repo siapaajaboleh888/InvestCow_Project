@@ -8,6 +8,8 @@ import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/portfolios_service.dart';
 import '../services/transactions_service.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:intl/intl.dart';
 
 class PasarPage extends StatefulWidget {
   const PasarPage({super.key});
@@ -25,11 +27,60 @@ class _PasarPageState extends State<PasarPage> {
   String? _error;
   List<Map<String, dynamic>> _products = [];
   double _userBalance = 0;
+  IO.Socket? socket;
+  final NumberFormat _currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
   @override
   void initState() {
     super.initState();
+    _initSocket();
     _loadProducts();
+  }
+
+  void _initSocket() {
+    socket = IO.io(_client.socketUrl, IO.OptionBuilder()
+      .setTransports(['websocket'])
+      .disableAutoConnect()
+      .build());
+
+    socket!.on('product-updated', (data) {
+      if (data != null && data is Map && mounted) {
+        final updatedId = data['id'].toString();
+        setState(() {
+          int idx = _products.indexWhere((p) => p['id'].toString() == updatedId);
+          if (idx != -1) {
+            _products[idx] = {
+              ..._products[idx],
+              ...Map<String, dynamic>.from(data),
+            };
+          } else {
+            _products.insert(0, Map<String, dynamic>.from(data));
+          }
+        });
+      }
+    });
+
+    socket!.on('price-update-batch', (dataList) {
+      if (dataList != null && dataList is List && mounted) {
+        setState(() {
+          for (var item in dataList) {
+            final productId = item['productId']?.toString();
+            int idx = _products.indexWhere((p) => p['id'].toString() == productId);
+            if (idx != -1) {
+              _products[idx]['price'] = item['newPrice'];
+            }
+          }
+        });
+      }
+    });
+
+    socket!.connect();
+  }
+
+  @override
+  void dispose() {
+    socket?.dispose();
+    super.dispose();
   }
 
   Future<void> _loadProducts() async {
@@ -224,245 +275,161 @@ class _PasarPageState extends State<PasarPage> {
                           : double.tryParse(quotaRaw?.toString() ?? '0') ?? 0;
                       final isSoldOut = quota <= 0;
                       final imageUrl = p['image_url']?.toString();
+                      final priceText = _currencyFormat.format(price);
 
-                      final priceText = price
-                          .toStringAsFixed(0)
-                          .replaceAllMapped(
-                            RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                            (m) => '${m[1]}.',
-                          );
-
-                      return Card(
-                        elevation: 2,
-                        margin: const EdgeInsets.only(bottom: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.all(16),
-                          leading: imageUrl != null && imageUrl.isNotEmpty
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(
-                                    imageUrl.startsWith('http')
-                                        ? imageUrl
-                                        : '${_client.baseUrl}$imageUrl',
-                                    width: 56,
-                                    height: 56,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) =>
-                                        const Icon(Icons.pets),
-                                  ),
-                                )
-                              : CircleAvatar(
-                                  backgroundColor: Colors.cyan[100],
-                                  radius: 28,
-                                  child: Icon(
-                                    Icons.pets,
-                                    color: Colors.cyan[700],
-                                  ),
-                                ),
-                          title: Text(
-                            name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
                             ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 4),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: InkWell(
+                            onTap: () => _showBuyDialog(p, index),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
                                 children: [
-                                  Text('Harga: Rp $priceText'),
-                                  IconButton(
-                                    icon: const Icon(Icons.share, size: 18),
-                                    padding: const EdgeInsets.only(left: 4),
-                                    constraints: const BoxConstraints(),
-                                    onPressed: () {
-                                      final text =
-                                          'Investasi sapi "$name"\nHarga: Rp $priceText\nKuota: ${quota.toStringAsFixed(0)} ekor';
-                                      Share.share(text, subject: 'Promo Investasi Sapi');
-                                    },
+                                  // Image section - Fixed Width
+                                  Hero(
+                                    tag: 'product_${p['id']}',
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(15),
+                                      child: Container(
+                                        width: 80,
+                                        height: 80,
+                                        color: Colors.grey[100],
+                                        child: imageUrl != null && imageUrl.isNotEmpty
+                                            ? Image.network(
+                                                imageUrl.startsWith('http')
+                                                    ? imageUrl
+                                                    : '${_client.baseUrl}$imageUrl',
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error, stackTrace) =>
+                                                    const Icon(Icons.pets, color: Colors.grey),
+                                              )
+                                            : const Icon(Icons.pets, color: Colors.grey, size: 30),
+                                      ),
+                                    ),
                                   ),
-                                ],
-                              ),
-                              Text(
-                                isSoldOut
-                                    ? 'Kuota habis / sudah terjual'
-                                    : 'Kuota tersedia: ${quota.toStringAsFixed(0)} ekor',
-                                style: TextStyle(
-                                  color: isSoldOut ? Colors.red[700] : Colors.black87,
-                                  fontWeight: isSoldOut ? FontWeight.w600 : FontWeight.normal,
-                                ),
-                              ),
-                            ],
-                          ),
-                          trailing: isSoldOut
-                              ? const Text(
-                                  'Habis',
-                                  style: TextStyle(
-                                    color: Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                )
-                              : ElevatedButton(
-                            onPressed: () async {
-                              final qtyController = TextEditingController(text: '1');
-                              final confirmed = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) {
-                                  return StatefulBuilder(
-                                    builder: (context, setDialogState) {
-                                      final qtyPreview = double.tryParse(qtyController.text.trim()) ?? 0;
-                                      final totalPreviewNum = price * qtyPreview;
-                                      final totalPreview = totalPreviewNum
-                                          .toStringAsFixed(0)
-                                          .replaceAllMapped(
-                                            RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                                            (m) => '${m[1]}.',
-                                          );
-
-                                      return AlertDialog(
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
+                                  const SizedBox(width: 12),
+                                  // Content section - Flexible
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: Color(0xFF2D3142),
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        title: const Text('Konfirmasi Pembelian'),
-                                        content: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          priceText,
+                                          style: TextStyle(
+                                            color: Colors.cyan[800],
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Row(
                                           children: [
-                                            Text('Produk: $name'),
-                                            const SizedBox(height: 4),
-                                            Text('Harga per ekor: Rp $priceText'),
-                                            const SizedBox(height: 4),
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  'Perkiraan total: Rp $totalPreview',
-                                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.cyan),
-                                                ),
-                                                Text(
-                                                  '($priceText x ${qtyPreview.toStringAsFixed(0)})',
-                                                  style: const TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
-                                                ),
-                                              ],
+                                            Icon(
+                                              isSoldOut ? Icons.error_outline : Icons.inventory_2_outlined,
+                                              size: 12,
+                                              color: isSoldOut ? Colors.red : Colors.grey[600],
                                             ),
-                                            const SizedBox(height: 8),
-                                            TextField(
-                                              controller: qtyController,
-                                              keyboardType: TextInputType.number,
-                                              decoration: const InputDecoration(
-                                                labelText: 'Jumlah ekor',
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                isSoldOut ? 'Sold Out' : 'Sisa: ${quota.toInt()} ekor',
+                                                style: TextStyle(
+                                                  color: isSoldOut ? Colors.red : Colors.grey[700],
+                                                  fontSize: 11,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                              onChanged: (val) {
-                                                setDialogState(() {});
-                                              },
-                                            ),
-                                            const SizedBox(height: 12),
-                                            const Text(
-                                              'Transaksi akan dicatat ke portofolio sapi utama Anda.',
-                                              style: TextStyle(fontSize: 12, color: Colors.black54),
                                             ),
                                           ],
                                         ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.of(ctx).pop(false),
-                                            child: const Text('Batal'),
-                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Action section - Constrained Width
+                                  SizedBox(
+                                    width: 75,
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (!isSoldOut)
                                           ElevatedButton(
-                                            onPressed: () => Navigator.of(ctx).pop(true),
-                                            child: const Text('Konfirmasi'),
+                                            onPressed: () => _showBuyDialog(p, index),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.cyan[600],
+                                              foregroundColor: Colors.white,
+                                              elevation: 0,
+                                              padding: EdgeInsets.zero,
+                                              minimumSize: const Size(double.infinity, 32),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(10),
+                                              ),
+                                            ),
+                                            child: const Text('Beli', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                          )
+                                        else
+                                          Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.symmetric(vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.red[50],
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              'Habis',
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(color: Colors.red[700], fontWeight: FontWeight.bold, fontSize: 11),
+                                            ),
                                           ),
-                                        ],
-                                      );
-                                    },
-                                  );
-                                },
-                              );
-
-                              if (confirmed != true) return;
-
-                              final qty = double.tryParse(qtyController.text.trim());
-                              if (qty == null || qty <= 0) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Jumlah ekor tidak valid'),
+                                        const SizedBox(height: 4),
+                                        InkWell(
+                                          onTap: () {
+                                              final text = 'Investasi sapi "$name"\nHarga: $priceText\nKuota: ${quota.toInt()} ekor';
+                                              Share.share(text, subject: 'Promo Investasi Sapi');
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.all(6),
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey[100],
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(Icons.share_outlined, size: 14, color: Colors.grey),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                );
-                                return;
-                              }
-
-                              final totalHarga = price * qty;
-                              final saldoKas = await _getKasSaldo();
-                              if (saldoKas < totalHarga) {
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                        'Saldo kas tidak cukup untuk membeli $qty ekor $name.'),
-                                  ),
-                                );
-                                return;
-                              }
-
-                              try {
-                                final portfolio = await _portfoliosService.getOrCreateDefault();
-                                final portfolioId = portfolio['id'] as int;
-
-                                await _transactionsService.create(
-                                  portfolioId: portfolioId,
-                                  type: 'BUY',
-                                  symbol: name,
-                                  quantity: qty,
-                                  price: price,
-                                  occurredAt: DateTime.now(),
-                                  note: 'Pembelian melalui Pasar Sapi (Utuh)',
-                                );
-
-                                await _catatPengeluaranKas(
-                                  total: totalHarga,
-                                  productName: name,
-                                  quantity: qty,
-                                );
-
-                                setState(() {
-                                  final currentQuota = quota;
-                                  var newQuota = currentQuota - qty;
-                                  if (newQuota < 0) newQuota = 0;
-                                  _products[index]['quota'] = newQuota;
-                                });
-
-                                // Refresh balance and quotas from server
-                                _loadProducts();
-
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                        'Pembelian $qty ekor $name berhasil dicatat.'),
-                                  ),
-                                );
-                              } catch (e) {
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content:
-                                        Text('Gagal mencatat transaksi: ${e.toString()}'),
-                                  ),
-                                );
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.cyan[400],
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size(72, 36),
+                                ],
+                              ),
                             ),
-                            child: const Text('Beli'),
                           ),
                         ),
                       );
@@ -474,5 +441,155 @@ class _PasarPageState extends State<PasarPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _showBuyDialog(Map<String, dynamic> p, int index) async {
+    final name = p['name']?.toString() ?? 'Produk';
+    final price = double.tryParse(p['price']?.toString() ?? '0') ?? 0;
+    final priceText = _currencyFormat.format(price);
+    
+    final qtyController = TextEditingController(text: '1');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final qtyPreview = double.tryParse(qtyController.text.trim()) ?? 0;
+            final totalPreviewNum = price * qtyPreview;
+            final totalPreview = _currencyFormat.format(totalPreviewNum);
+
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: const Text('Beli Sapi Utuh', style: TextStyle(fontWeight: FontWeight.bold)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Unit: $name', style: const TextStyle(color: Colors.grey)),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: Colors.cyan[50], borderRadius: BorderRadius.circular(16)),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Harga Unit', style: TextStyle(fontSize: 12)),
+                            Text(priceText, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          ],
+                        ),
+                        const Divider(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Total Bayar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                            Text(totalPreview, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.cyan)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: qtyController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Jumlah Ekor',
+                      prefixIcon: const Icon(Icons.exposure_plus_1),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                    onChanged: (val) => setDialogState(() {}),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text('Batal', style: TextStyle(color: Colors.grey[600])),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.cyan[700],
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Bayar Sekarang'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    final qty = double.tryParse(qtyController.text.trim());
+    if (qty == null || qty <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Jumlah ekor tidak valid')));
+      return;
+    }
+
+    final totalHarga = price * qty;
+    final saldoKas = await _getKasSaldo();
+    if (saldoKas < totalHarga) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Saldo tidak cukup. Total: $totalHarga')));
+      return;
+    }
+
+    try {
+      final portfolio = await _portfoliosService.getOrCreateDefault();
+      final portfolioId = portfolio['id'] as int;
+
+      await _transactionsService.create(
+        portfolioId: portfolioId,
+        type: 'BUY',
+        symbol: name,
+        quantity: qty,
+        price: price,
+        occurredAt: DateTime.now(),
+        note: 'Pembelian via Pasar Sapi',
+      );
+
+      await _catatPengeluaranKas(total: totalHarga, productName: name, quantity: qty);
+
+      if (mounted) {
+        setState(() {
+          int idx = _products.indexWhere((p) => p['id'] == p['id']); // dummy update, real sync will follow
+           _loadProducts(); // true refresh
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.green[700],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            duration: const Duration(seconds: 4),
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_outline, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '🌟 Sukses! Anda telah berhasil membeli $qty ekor $name.',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal: $e')));
+    }
   }
 }

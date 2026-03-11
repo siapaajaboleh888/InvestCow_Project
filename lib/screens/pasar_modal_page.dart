@@ -82,12 +82,19 @@ class _PasarModalPageState extends State<PasarModalPage> {
 
   Future<void> _fetchUserData() async {
     try {
-      final user = await _authService.getMe();
-      final summary = await _trxService.getPortfolioSummary();
+      // Parallelize for faster loading
+      final results = await Future.wait([
+        _authService.getMe(),
+        _trxService.getPortfolioSummary(),
+      ]);
+      
+      final user = results[0] as Map<String, dynamic>;
+      final summary = results[1] as List<Map<String, dynamic>>;
+
       if (mounted) {
         setState(() {
           _userBalance = _toDouble(user['balance']);
-          _displayName = user['display_name'] ?? "User";
+          _displayName = user['display_name'] ?? user['name'] ?? "User";
           _portfolioSummary = summary;
         });
       }
@@ -180,6 +187,40 @@ class _PasarModalPageState extends State<PasarModalPage> {
       }
     });
 
+    socket!.on('product-updated', (data) {
+      if (data != null && data is Map) {
+        final updatedId = data['id'].toString();
+        
+        if (!mounted) return;
+        setState(() {
+          final updatedItem = Map<String, dynamic>.from(data);
+          // 1. Update list produk yang tersedia (untuk dropdown)
+          int existingIndex = _products.indexWhere((p) => p['id'].toString() == updatedId);
+          if (existingIndex != -1) {
+            _products[existingIndex] = updatedItem;
+          } else {
+            // Jika produk baru (ditambahkan admin), masukkan ke list
+            _products.insert(0, updatedItem);
+          }
+
+          // 2. Jika produk yang sedang dibuka oleh user adalah produk yang diupdate
+          if (_selectedProduct != null && _selectedProduct!['id'].toString() == updatedId) {
+            // Gunakan referensi yang sama agar DropdownButton tidak error (objek harus ada di list items)
+            _selectedProduct = updatedItem;
+            
+            // Update meta internal yang ditampilkan di UI
+            _marketSentiment = data['market_sentiment']?.toString();
+            _currentPrice = _toDouble(data['price']);
+            _currentWeight = _toDouble(data['current_weight']);
+            _pricePerKg = _toDouble(data['price_per_kg']);
+            
+            // Jika nama/ticker berubah, ini juga akan otomatis terupdate 
+            // karena build() menggunakan _selectedProduct['name'] dll.
+          }
+        });
+      }
+    });
+
     socket!.connect();
   }
 
@@ -190,6 +231,9 @@ class _PasarModalPageState extends State<PasarModalPage> {
     });
 
     try {
+      // Fetch user data first or in parallel
+      await _fetchUserData();
+      
       final res = await http.get(_apiClient.uri('/admin/products-public'));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as List;
@@ -360,13 +404,21 @@ class _PasarModalPageState extends State<PasarModalPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Halo, $_displayName', style: const TextStyle(color: Colors.white70, fontSize: 14)),
-                      const Text('Saldo Anda:', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                      Text(_formatCurrency(_userBalance), style: const TextStyle(color: Colors.greenAccent, fontSize: 18, fontWeight: FontWeight.bold)),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Halo, $_displayName', 
+                          style: const TextStyle(color: Colors.white70, fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const Text('Saldo Anda:', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                        Text(_formatCurrency(_userBalance), 
+                          style: const TextStyle(color: Colors.greenAccent, fontSize: 18, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
                   ElevatedButton.icon(
                     onPressed: _showTopUpDialog,
@@ -404,7 +456,13 @@ class _PasarModalPageState extends State<PasarModalPage> {
                               child: Row(
                                 children: [
                                   const Text('Jenis Sapi: ', style: TextStyle(color: Colors.white54, fontSize: 14, fontWeight: FontWeight.normal)),
-                                  Text('${product['ticker_code'] ?? 'COW'} - ${product['name'] ?? 'Sapi'}'),
+                                  Flexible(
+                                    child: Text(
+                                      '${product['ticker_code'] ?? 'COW'} - ${product['name'] ?? 'Sapi'}',
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
                                 ],
                               ),
                             );
@@ -434,41 +492,49 @@ class _PasarModalPageState extends State<PasarModalPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _formatCurrency(_currentPrice),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'monospace',
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              Icon(
-                                _isPriceUp ? Icons.arrow_upward : Icons.arrow_downward,
-                                color: _isPriceUp ? Colors.greenAccent : Colors.redAccent,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${_isPriceUp ? "+" : ""}${_percentChange.toStringAsFixed(2)}%',
-                                style: TextStyle(
-                                  color: _isPriceUp ? Colors.greenAccent : Colors.redAccent,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                _formatCurrency(_currentPrice),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 32,
                                   fontWeight: FontWeight.bold,
+                                  fontFamily: 'monospace',
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              Text(
-                                _selectedProduct?['ticker_code'] ?? 'COW',
-                                style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        ],
+                            ),
+                            Row(
+                              children: [
+                                Icon(
+                                  _isPriceUp ? Icons.arrow_upward : Icons.arrow_downward,
+                                  color: _isPriceUp ? Colors.greenAccent : Colors.redAccent,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${_isPriceUp ? "+" : ""}${_percentChange.toStringAsFixed(2)}%',
+                                  style: TextStyle(
+                                    color: _isPriceUp ? Colors.greenAccent : Colors.redAccent,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    _selectedProduct?['ticker_code'] ?? 'COW',
+                                    style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
 
                       const CircleAvatar(
@@ -1006,7 +1072,7 @@ class _PasarModalPageState extends State<PasarModalPage> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF1E222D),
         title: Text('Konfirmasi ${type == 'BUY' ? 'Investasi' : 'Penjualan'}', style: const TextStyle(color: Colors.white)),
         content: Text(
@@ -1014,11 +1080,11 @@ class _PasarModalPageState extends State<PasarModalPage> {
           style: const TextStyle(color: Colors.grey),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Batal')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: type == 'BUY' ? Colors.green : Colors.red),
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               
               // 1. Local Optimistic Update for "Real-time" feel
               setState(() {
@@ -1064,7 +1130,24 @@ class _PasarModalPageState extends State<PasarModalPage> {
                 
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Transaksi ${type == 'BUY' ? 'Pembelian' : 'Penjualan'} Berhasil!'), backgroundColor: Colors.green),
+                  SnackBar(
+                    content: Row(
+                      children: [
+                        const Icon(Icons.stars, color: Colors.white),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Berhasil! ${type == 'BUY' ? 'Membeli' : 'Menjual'} ${qty.toStringAsFixed(2)} ekor sapi ${_selectedProduct!['name']}.',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                    backgroundColor: Colors.green[800],
+                    duration: const Duration(seconds: 4),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
                 );
                 
                 // 2. Sync with Server after a tiny delay to ensure DB propagation

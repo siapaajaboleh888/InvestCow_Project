@@ -21,7 +21,7 @@ class ApiClient {
     if (kIsWeb) {
       return 'http://localhost:8081';
     } else {
-      return 'http://192.168.1.111:8081'; 
+      return 'http://192.168.1.4:8081'; 
     }
   }
 

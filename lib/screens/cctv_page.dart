@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 
@@ -174,7 +176,11 @@ class _CctvPageState extends State<CctvPage> {
     return GestureDetector(
       onTap: () {
         if (cctvUrl != null && cctvUrl.isNotEmpty) {
-          _showLiveStream(context, cow);
+          if (kIsWeb) {
+            _showStreamDialog(cow);
+          } else {
+            _openDirectly(cctvUrl);
+          }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('CCTV tidak tersedia untuk sapi ini')),
@@ -196,7 +202,7 @@ class _CctvPageState extends State<CctvPage> {
                     color: Colors.black87,
                     child: imageUrl != null && imageUrl.isNotEmpty
                         ? Image.network(
-                            imageUrl.startsWith('http') ? imageUrl : '${_client.baseUrl}$imageUrl',
+                            imageUrl.startsWith('http') ? imageUrl : '${_client.baseUrl}${imageUrl.startsWith('/') ? '' : '/'}$imageUrl',
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) =>
                                 const Icon(Icons.videocam, color: Colors.white24, size: 40),
@@ -257,12 +263,31 @@ class _CctvPageState extends State<CctvPage> {
     );
   }
 
-  void _showLiveStream(BuildContext context, Map<String, dynamic> cow) {
+  void _showStreamDialog(Map<String, dynamic> cctv) {
     showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => CctvStreamDialog(cow: cow),
+      builder: (context) => CctvStreamDialog(cow: cctv),
     );
+  }
+
+  Future<void> _openDirectly(String cctvUrl) async {
+    String finalUrl = cctvUrl;
+    if (cctvUrl.startsWith('youtube://')) {
+      final id = cctvUrl.replaceFirst('youtube://', '');
+      finalUrl = 'https://www.youtube.com/watch?v=$id';
+    }
+    final uri = Uri.parse(finalUrl);
+    try {
+      // Menggunakan inAppBrowserView khusus di HP agar aplikasi tidak "terhenti" (Lost Connection)
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(
+          uri, 
+          mode: LaunchMode.inAppBrowserView,
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Gagal membuka CCTV: $e');
+    }
   }
 }
 
@@ -285,6 +310,23 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
   bool _initialized = false;
   String? _error;
   bool _isYoutube = false;
+
+  Future<void> _openInBrowser() async {
+    final String cctvUrl = widget.cow['cctv_url'] ?? '';
+    String finalUrl = cctvUrl;
+    if (cctvUrl.startsWith('youtube://')) {
+      final id = cctvUrl.replaceFirst('youtube://', '');
+      finalUrl = 'https://www.youtube.com/watch?v=$id';
+    }
+    final uri = Uri.parse(finalUrl);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.inAppBrowserView); // Updated to inAppBrowserView
+      }
+    } catch (e) {
+      debugPrint('❌ Error launching URL: $e');
+    }
+  }
 
   @override
   void initState() {
@@ -311,8 +353,8 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
           showControls: true,
           showFullscreenButton: true,
           mute: false,
-          // origin: 'http://localhost',
-          strictRelatedVideos: false,
+          origin: 'https://www.youtube.com',
+          enableCaption: false,
         ),
 
       );
@@ -437,10 +479,24 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  '*Siaran langsung ini adalah representasi simulasi monitoring real-time',
-                  style: TextStyle(color: Colors.white38, fontSize: 10, fontStyle: FontStyle.italic),
-                ),
+                if (!kIsWeb) ...[
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: _openInBrowser,
+                    icon: const Icon(Icons.open_in_browser),
+                    label: const Text('BUKA DI BROWSER / YOUTUBE'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.cyan[700],
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(200, 45),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '*Gunakan tombol di atas jika video di dalam aplikasi tidak muncul/error',
+                    style: TextStyle(color: Colors.white38, fontSize: 10, fontStyle: FontStyle.italic),
+                  ),
+                ],
               ],
             ),
           ),
