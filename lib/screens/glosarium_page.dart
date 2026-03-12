@@ -127,14 +127,24 @@ class _GlosariumPageState extends State<GlosariumPage> {
       'icon': Icons.handshake_outlined
     },
     {
-      'term': 'Keuntungan Bersih (Investor)',
-      'desc': 'Porsi 70% dari total profit kotor yang merupakan hak mutlak investor sebagai pemilik unit saham/aset sapi.',
+      'term': 'Keuntungan Netto (Hak Bersih Investor)',
+      'desc': 'Saldo keuntungan yang diterima investor setelah dipotong porsi bagi hasil atau upah jasa peternak. Ini adalah nilai bersih yang masuk ke saldo kas Anda.',
       'icon': Icons.account_balance_outlined
     },
     {
-      'term': 'Upah Jasa Pengelolaan (Peternak)',
-      'desc': 'Porsi 30% dari total profit kotor yang diberikan kepada peternak sebagai imbalan jasa perawatan, pemberian pakan, dan manajemen kesehatan sapi.',
+      'term': 'Upah Jasa Pengelolaan (Hak Peternak)',
+      'desc': 'Imbalan bagi peternak atas perawatan sapi. Besarnya bergantung pada unit: 10% untuk kepemilikan sapi utuh dan 30% untuk kepemilikan fraksional.',
       'icon': Icons.volunteer_activism_outlined
+    },
+    {
+      'term': 'Kepemilikan Fraksional (Nominal)',
+      'desc': 'Investasi sapi dengan jumlah di bawah 1 unit (misal: 0.05 unit). Memungkinkan siapa saja berinvestasi dengan modal terjangkau.',
+      'icon': Icons.pie_chart_outline
+    },
+    {
+      'term': 'Sapi Utuh (Whole Unit)',
+      'desc': 'Investasi sapi dengan jumlah minimal 1 unit atau lebih. Pemilik sapi utuh mendapatkan porsi bagi hasil lebih besar (90%).',
+      'icon': Icons.pets_outlined
     },
     {
       'term': 'Harga Sapi Awal',
@@ -178,9 +188,9 @@ class _GlosariumPageState extends State<GlosariumPage> {
     },
     {
       'term': 'Bagi Hasil (Profit Sharing)',
-      'desc': 'Sistem distribusi keuntungan. Di InvestCow menggunakan rumus:\n'
-              '✅ UNTUNG: (Harga Jual - Harga Sapi Awal) x 70% Hak Investor.\n'
-              '❌ RUGI: Modal Awal - ((Harga Sapi Awal - Harga Jual Saat Ini) x Unit Saham).',
+      'desc': 'Sistem distribusi keuntungan di InvestCow menggunakan Ratio Syirkah:\n'
+              '• Sapi Utuh: 90/10 (Investor 90%, Peternak 10%).\n'
+              '• Fraksional: 70/30 (Investor 70%, Peternak 30%).',
       'icon': Icons.balance_outlined
     },
   ];

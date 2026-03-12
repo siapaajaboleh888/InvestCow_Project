@@ -225,35 +225,49 @@ class _PasarModalPageState extends State<PasarModalPage> {
   }
 
   Future<void> _fetchInitialData() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
     try {
-      // Fetch user data first or in parallel
-      await _fetchUserData();
+      // Optimization: Fetch user and products in parallel
+      final results = await Future.wait([
+        _fetchUserData(),
+        http.get(_apiClient.uri('/admin/products-public')),
+      ]);
       
-      final res = await http.get(_apiClient.uri('/admin/products-public'));
+      final res = results[1] as http.Response;
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as List;
-        _products = data.cast<Map<String, dynamic>>();
-        if (_products.isNotEmpty) {
-          _selectedProduct = _products[0];
-          _currentPrice = _toDouble(_selectedProduct!['price']);
-          _currentWeight = _toDouble(_selectedProduct!['current_weight']);
-          _pricePerKg = _toDouble(_selectedProduct!['price_per_kg']);
-          _marketSentiment = _selectedProduct!['market_sentiment']?.toString();
-          await _fetchHistory(_selectedProduct!['id']);
+        if (!mounted) return;
+        
+        setState(() {
+          _products = data.cast<Map<String, dynamic>>();
+          if (_products.isNotEmpty) {
+            _selectedProduct = _products[0];
+            _currentPrice = _toDouble(_selectedProduct!['price']);
+            _currentWeight = _toDouble(_selectedProduct!['current_weight']);
+            _pricePerKg = _toDouble(_selectedProduct!['price_per_kg']);
+            _marketSentiment = _selectedProduct!['market_sentiment']?.toString();
+          }
+          _isLoading = false; 
+        });
+
+        // Fetch history in background (don't block the main UI)
+        if (_selectedProduct != null) {
+          _fetchHistory(_selectedProduct!['id']);
         }
       } else {
         throw Exception('Gagal memuat produk: ${res.statusCode}');
       }
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
-    } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
       }
     }
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:typed_data';
 import 'dart:convert';
+import 'dart:io';
 import '../services/auth_service.dart';
 import '../services/logout_service.dart';
 import 'profil_page.dart';
@@ -62,27 +63,66 @@ class _AkunPageState extends State<AkunPage> {
         allowMultiple: false,
       );
 
-      if (result != null && result.files.first.bytes != null) {
-        final bytes = result.files.first.bytes!;
-        final base64Image = base64Encode(bytes);
+      if (result != null) {
+        Uint8List? bytes = result.files.first.bytes;
         
-        setState(() {
-          _imageBytes = bytes;
-        });
-        
-        // Simpan ke backend & SharedPreferences
-        await _authService.updateProfilePicture(base64Image);
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Foto profil berhasil diperbarui'), backgroundColor: Colors.green),
-          );
+        // Perbaikan untuk Android/Mobile: Jika bytes null, baca dari path
+        if (bytes == null && result.files.first.path != null) {
+          final file = File(result.files.first.path!);
+          bytes = await file.readAsBytes();
+        }
+
+        if (bytes != null) {
+          // Tampilkan loading snackbar
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Row(
+                  children: [
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    ),
+                    SizedBox(width: 15),
+                    Text('Sedang mengunggah foto profil...'),
+                  ],
+                ),
+                backgroundColor: Colors.blue,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+
+          final base64Image = base64Encode(bytes);
+          
+          setState(() {
+            _imageBytes = bytes;
+          });
+          
+          // Simpan ke backend & SharedPreferences
+          await _authService.updateProfilePicture(base64Image);
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Foto profil berhasil diperbarui'),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal memilih foto: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Gagal memperbarui foto: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
