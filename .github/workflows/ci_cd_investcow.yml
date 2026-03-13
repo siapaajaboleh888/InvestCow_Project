@@ -2,7 +2,7 @@ name: InvestCow DevOps CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ mains ]
   pull_request:
     branches: [ main ]
 
