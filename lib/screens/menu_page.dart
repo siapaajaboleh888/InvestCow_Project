@@ -6,6 +6,7 @@ import 'cctv_page.dart';
 import 'transaksi_page.dart';
 import 'pasar_page.dart';
 import 'glosarium_page.dart';
+import 'asuransi_page.dart';
 import '../main.dart';
 
 class MenuPage extends StatelessWidget {
@@ -50,90 +51,108 @@ class MenuPage extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(12.0),
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.05,
-                children: [
-                  MenuCard(
-                    icon: Icons.account_balance_wallet,
-                    title: 'Kas Sapi',
-                    color: Colors.cyan[600]!,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const KasPage()),
-                      );
-                    },
-                  ),
-                  MenuCard(
-                    icon: Icons.history_edu,
-                    title: 'Transaksi',
-                    color: Colors.orange[400]!,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const TransaksiPage()),
-                      );
-                    },
-                  ),
-                  MenuCard(
-                    icon: Icons.pets,
-                    title: 'Kandang',
-                    color: Colors.brown[400]!,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const KandangPage()),
-                      );
-                    },
-                  ),
-                  MenuCard(
-                    icon: Icons.videocam,
-                    title: 'CCTV Sapi',
-                    color: Colors.purple[400]!,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const CctvPage()),
-                      );
-                    },
-                  ),
-                  MenuCard(
-                    icon: Icons.storefront,
-                    title: 'Pasar Sapi',
-                    color: Colors.teal[400]!,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const PasarPage()),
-                      );
-                    },
-                  ),
-                  MenuCard(
-                    icon: Icons.health_and_safety,
-                    title: 'Kesehatan',
-                    color: Colors.red[400]!,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const KesehatanPage()),
-                      );
-                    },
-                  ),
-                  MenuCard(
-                    icon: Icons.menu_book_rounded,
-                    title: 'Glosarium',
-                    color: Colors.indigo[400]!,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const GlosariumPage()),
-                      );
-                    },
-                  ),
-                ],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // Berikan lebih banyak kolom jika layar lebar (Laptop/Desktop)
+                  int crossAxisCount = constraints.maxWidth > 800 ? 4 : 2;
+                  
+                  return GridView.count(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.05,
+                    children: [
+                      MenuCard(
+                        icon: Icons.account_balance_wallet,
+                        title: 'Kas Sapi',
+                        color: Colors.cyan[600]!,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const KasPage()),
+                          );
+                        },
+                      ),
+                      MenuCard(
+                        icon: Icons.history_edu,
+                        title: 'Transaksi',
+                        color: Colors.orange[400]!,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const TransaksiPage()),
+                          );
+                        },
+                      ),
+                      MenuCard(
+                        icon: Icons.pets,
+                        title: 'Kandang',
+                        color: Colors.brown[400]!,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const KandangPage()),
+                          );
+                        },
+                      ),
+                      MenuCard(
+                        icon: Icons.videocam,
+                        title: 'CCTV Sapi',
+                        color: Colors.purple[400]!,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const CctvPage()),
+                          );
+                        },
+                      ),
+                      MenuCard(
+                        icon: Icons.storefront,
+                        title: 'Pasar Sapi',
+                        color: Colors.teal[400]!,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const PasarPage()),
+                          );
+                        },
+                      ),
+                      MenuCard(
+                        icon: Icons.health_and_safety,
+                        title: 'Kesehatan',
+                        color: Colors.red[400]!,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const KesehatanPage()),
+                          );
+                        },
+                      ),
+                      MenuCard(
+                        icon: Icons.menu_book_rounded,
+                        title: 'Glosarium',
+                        color: Colors.indigo[400]!,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const GlosariumPage()),
+                          );
+                        },
+                      ),
+                      MenuCard(
+                        icon: Icons.verified_user_rounded,
+                        title: 'Asuransi',
+                        color: Colors.blue[600]!,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const AsuransiPage()),
+                          );
+                        },
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),

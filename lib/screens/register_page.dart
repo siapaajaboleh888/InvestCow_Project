@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'package:investcow_app/main.dart';
+import 'syarat_ketentuan_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -410,10 +411,10 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                             GestureDetector(
                               onTap: () {
-                                // TODO: Navigate to terms page
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Halaman Syarat & Ketentuan'),
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const SyaratKetentuanPage(),
                                   ),
                                 );
                               },
@@ -422,7 +423,8 @@ class _RegisterPageState extends State<RegisterPage> {
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.blue,
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w600,
+                                  decoration: TextDecoration.underline, // Visual cue for link
                                 ),
                               ),
                             ),
