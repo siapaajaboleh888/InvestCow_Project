@@ -176,11 +176,7 @@ class _CctvPageState extends State<CctvPage> {
     return GestureDetector(
       onTap: () {
         if (cctvUrl != null && cctvUrl.isNotEmpty) {
-          if (kIsWeb) {
-            _showStreamDialog(cow);
-          } else {
-            _openDirectly(cctvUrl);
-          }
+          _showStreamDialog(cow);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('CCTV tidak tersedia untuk sapi ini')),
@@ -310,6 +306,7 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
   bool _initialized = false;
   String? _error;
   bool _isYoutube = false;
+  bool _playbackError = false; // Flag to track playback errors
 
   Future<void> _openInBrowser() async {
     final String cctvUrl = widget.cow['cctv_url'] ?? '';
@@ -356,10 +353,17 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
           origin: 'https://www.youtube.com',
           enableCaption: false,
         ),
-
       );
+
+      // Listen for errors to show the emergency button
+      _ytController!.listen((state) {
+        if (state.error != Object()) { // Check for any error
+          if (mounted && !_playbackError) {
+            setState(() => _playbackError = true);
+          }
+        }
+      });
       
-      // For Web, we sometimes need to wait for initialization or use a specific origin
       setState(() => _initialized = true);
     } else {
       _isYoutube = false;
@@ -478,23 +482,23 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                if (!kIsWeb) ...[
-                  const SizedBox(height: 12),
+                if (_playbackError && !kIsWeb) ...[
+                  const SizedBox(height: 16),
                   ElevatedButton.icon(
                     onPressed: _openInBrowser,
-                    icon: const Icon(Icons.open_in_browser),
-                    label: const Text('BUKA DI BROWSER / YOUTUBE'),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('COBA PUTAR DI PLAYER EXTERNAL'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.cyan[700],
+                      backgroundColor: Colors.orange[800],
                       foregroundColor: Colors.white,
-                      minimumSize: const Size(200, 45),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     ),
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    '*Gunakan tombol di atas jika video di dalam aplikasi tidak muncul/error',
-                    style: TextStyle(color: Colors.white38, fontSize: 10, fontStyle: FontStyle.italic),
+                    'YouTube membatasi pemutaran internal di HP ini.',
+                    style: TextStyle(color: Colors.orangeAccent, fontSize: 10),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ],

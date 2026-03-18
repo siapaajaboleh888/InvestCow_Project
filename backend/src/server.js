@@ -40,10 +40,10 @@ const globalLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 20, // Limit each IP to 20 attempts per hour for sensitive routes
+  max: 100, // Increased for development/testing
   standardHeaders: true,
   legacyHeaders: false,
-  message: { message: 'Auth limit reached. Please wait an hour.' },
+  message: { message: 'Auth limit reached (max 100/hour). Please wait an hour or restart backend.' },
 });
 
 app.use(helmet({
