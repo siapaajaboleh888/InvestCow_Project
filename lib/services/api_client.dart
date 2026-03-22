@@ -21,7 +21,9 @@ class ApiClient {
     if (kIsWeb) {
       return 'http://localhost:8081';
     } else {
-      return 'http://192.168.1.10:8081'; 
+      // Menggunakan localhost agar bisa stabil pakai "adb reverse tcp:8081 tcp:8081"
+      // Jika pakai Emulator Android tanpa adb reverse, ganti jadi 'http://10.0.2.2:8081'
+      return 'http://localhost:8081'; 
     }
   }
 
