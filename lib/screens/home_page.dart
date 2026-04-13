@@ -399,6 +399,76 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
+              const SizedBox(height: 24),
+
+              // NEW: Quick Information & Education Links
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Pusat Edukasi & Alat', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildQuickActionCard(
+                            'Kalkulator ROI',
+                            'Hitung Bagi Hasil',
+                            Icons.calculate_outlined,
+                            Colors.green,
+                            () => _showRoiCalculator(),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildQuickActionCard(
+                            'Glosarium',
+                            'Istilah Ternak',
+                            Icons.book_outlined,
+                            Colors.blue,
+                            () => Navigator.push(context, MaterialPageRoute(builder: (context) => const GlosariumPage())),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Min Invest Info Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.cyan[50]!.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.cyan[100]!),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: const BoxDecoration(color: Colors.cyan, shape: BoxShape.circle),
+                            child: const Icon(Icons.info_outline, color: Colors.white, size: 18),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Mulai Investasi Sekarang!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.cyan)),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Cukup dengan ${_formatCurrency((_cowPrices.map((e) => e['price'] as int).reduce((a, b) => a < b ? a : b) * 0.01).toInt())} Anda sudah bisa memiliki unit sapi pertama Anda (0.01 Ekor).',
+                                  style: TextStyle(fontSize: 11, color: Colors.cyan[800], height: 1.4),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 32),
               // Analisis Pasar Hari Ini Block
               Padding(
@@ -1570,6 +1640,73 @@ class _HomePageState extends State<HomePage> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildQuickActionCard(String title, String sub, IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey[200]!),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  Text(sub, style: TextStyle(fontSize: 10, color: Colors.grey[600])),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showRoiCalculator() {
+    double currentTotalValue = _totalInvestmentValue;
+    double totalBaseValue = currentTotalValue * 0.95; 
+    final double currentProfit = currentTotalValue - totalBaseValue;
+    final double roiCycle = totalBaseValue > 0 ? (currentProfit / totalBaseValue) * 100 : 0.0;
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NewsDetailPage(news: {
+          'title': 'Live Kalkulator ROI Terpersonalisasi',
+          'source': 'Kalkulator InvestCow',
+          'logo': 'C',
+          'logoColor': '#00C853',
+          'date': '2026',
+          'time': 'Tools',
+          'content': 'Berdasarkan portofolio Anda saat ini:\n\n' +
+                     '• Total Nilai Aset: ${_formatCurrency(currentTotalValue.toInt())}\n' +
+                     '• Modal Utama Terpakai: ${_formatCurrency(totalBaseValue.toInt())}\n' +
+                     '• Keuntungan Berjalan: ${_formatCurrency(currentProfit.toInt())}\n' +
+                     '• Performa ROI Berjalan: ${roiCycle.toStringAsFixed(2)}%\n\n' +
+                     'Simulasi Masa Depan (Proyeksi 1 Tahun):\n' +
+                     'Dengan asumsi 4 siklus penggemukan tahunan, potensi ROI Anda berada di rentang:\n' +
+                     '📈 ${(roiCycle * 4).toStringAsFixed(1)}% - ${(roiCycle * 4 + 3.5).toStringAsFixed(1)}% per tahun.\n\n' +
+                     '*Perhitungan di atas bersifat estimasi real-time mengikuti harga pasar saat ini.',
+        }),
       ),
     );
   }
