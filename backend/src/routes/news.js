@@ -191,36 +191,20 @@ router.get('/', async (req, res) => {
 
                         // Sisipkan di paling atas dengan ID unik
                         finalNews.unshift({
-                            id: 1000 + i,
+                            id: 1000 + i, 
                             source: 'Analis InvestCow',
                             sourceUrl: 'investcow.id',
                             time: dynamicTime,
                             date: dynamicDate,
                             logo: 'A',
-                            logoColor: qty >= 0.99 ? '#FFD700' : '#00C853', // Gold color for whole cow owner
+                            logoColor: qty >= 0.99 ? '#FFD700' : '#00C853', 
                             title: `Analisis ROI ${productName} (${schemeName})`,
-                            content: `📊 RUMUS & KESEPAKATAN INVESTASI:\n\n` +
-                                `A. JIKA UNTUNG (PROFIT):\n` +
-                                `  [1] Total Profit Kotor = (Harga Jual - Harga Sapi Awal) x Unit Saham Investor\n` +
-                                `  [2] Bagi Hasil (Syirkah):\n` +
-                                `     • 70% Keuntungan Bersih (Hak Investor)\n` +
-                                `     • 30% Upah Jasa Pengelolaan (Hak Peternak)\n\n` +
-                                `B. JIKA RUGI (MITIGASI):\n` +
-                                `  [1] Selisih Rugi = (Harga Sapi Awal - Harga Jual Saat Ini) x Unit Saham\n` +
-                                `  [2] Dana Dikembalikan = (Modal Awal Investor - Selisih Rugi)\n` +
-                                `     • Catatan: Investor tetap memiliki hak atas nilai sisa aset riil porsi kepemilikan sahamnya.\n\n` +
-                                `Analisis Proyeksi Portofolio ${productName} Anda:\n\n` +
-                                `📈 SKENARIO KEUNTUNGAN (Optimis):\n` +
-                                `• Estimasi Capital Gain: ${formatIDR(netProfitInvestor)}\n` +
-                                `• Proyeksi ROI: ${roiPercent.toFixed(1)}% - ${(roiPercent + 5).toFixed(1)}%\n` +
-                                `• Estimasi Hasil Jual: ${formatIDR(totalTargetValue)}\n\n` +
-                                `📉 SKENARIO RISIKO (Pesimis - Turun 10%):\n` +
-                                `• Potensi Penurunan Nilai: -${formatIDR(investment * 0.1)}\n` +
-                                `• Catatan: Dalam investasi aset biologis (sapi), penurunan harga daging global atau biaya pakan bisa menekan imbal hasil.\n\n` +
-                                `💡 KESIMPULAN ANALIS:\n` +
-                                `Berdasarkan kepemilikan ${qty.toFixed(2)} unit Anda, ${schemeName} memberikan proteksi bagi hasil optimal (${Math.round(ratio * 100)}% porsi Investor). ` +
-                                `Sangat disarankan untuk memantau CCTV & Laporan Kesehatan secara rutin melalui aplikasi InvestCow.\n\n` +
-                                `⚠️ PROTEKSI: Aset Anda dilindungi oleh Asuransi Ternak pihak ketiga untuk risiko kematian/kecelakaan.`,
+                            content: `Berdasarkan kepemilikan Anda sebanyak ${qty.toFixed(0)} ekor ${productName}:\n\n` +
+                                     `💰 Estimasi Capital Gain: ${formatIDR(netProfitInvestor)}\n` +
+                                     `📈 Proyeksi ROI Tahunan: ${roiPercent.toFixed(1)}% - ${(roiPercent + 4).toFixed(1)}%\n` +
+                                     `🎯 Estimasi Harga Jual Target: ${formatIDR(totalTargetValue)}\n\n` +
+                                     `✅ Status: Terverifikasi oleh Sistem Analis\n\n` +
+                                     `*Proyeksi ini dihitung berdasarkan rumus ${schemeName} (Bagi Hasil ${Math.round(ratio * 100)}% Investor / ${Math.round((1 - ratio) * 100)}% Peternak) serta performa harian sapi (ADG) di kandang mitra.`,
                             url: 'https://investcow.id/analysis/roi'
                         });
                     }

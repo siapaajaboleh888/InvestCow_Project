@@ -121,6 +121,24 @@ class NewsDetailPage extends StatelessWidget {
                           color: Color(0xFF333333),
                         ),
                       ),
+                      
+                      // Internal Action (selengkapnya)
+                      if (news['internalAction'] != null) ...[
+                        const SizedBox(height: 16),
+                        InkWell(
+                          onTap: news['internalAction'] as VoidCallback,
+                          child: Text(
+                            '(Selengkapnya...)',
+                            style: TextStyle(
+                              color: accentColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 17,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ],
+
                       const SizedBox(height: 32),
                       // Action Button to Source
                       if (news['url'] != null)
