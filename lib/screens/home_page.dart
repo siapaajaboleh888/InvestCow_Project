@@ -10,6 +10,7 @@ import 'riwayat_page.dart';
 import 'pasar_page.dart';
 import 'glosarium_page.dart';
 import 'cctv_page.dart';
+import '../widgets/custom_charts.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -152,10 +153,8 @@ class _HomePageState extends State<HomePage> {
         final List<dynamic> data = jsonDecode(res.body);
         if (mounted) {
           setState(() {
-            // Filter out ROI analysis news from main feed as requested
             _newsItems = data
                 .cast<Map<String, dynamic>>()
-                .where((news) => !news['title'].toString().contains('Analisis ROI'))
                 .toList();
             _isLoadingNews = false;
           });
@@ -291,20 +290,20 @@ class _HomePageState extends State<HomePage> {
                       duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                       margin: const EdgeInsets.only(right: 12),
-                      decoration: BoxDecoration(
-                        color: isSelected ? Colors.black : Colors.white,
-                        borderRadius: BorderRadius.circular(25),
-                        boxShadow: [
-                          if (isSelected)
-                            BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))
-                          else
-                            BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2)),
-                        ],
-                        border: Border.all(
-                          color: isSelected ? Colors.black : Colors.grey[300]!,
-                          width: 1,
+                        decoration: BoxDecoration(
+                          color: isSelected ? Colors.black : Colors.white,
+                          borderRadius: BorderRadius.circular(25),
+                          boxShadow: [
+                            if (isSelected)
+                              BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))
+                            else
+                              BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2)),
+                          ],
+                          border: Border.all(
+                            color: isSelected ? Colors.black : Colors.grey[300]!,
+                            width: 1,
+                          ),
                         ),
-                      ),
                       child: Text(
                         tab,
                         style: TextStyle(
@@ -1612,6 +1611,8 @@ class _HomePageState extends State<HomePage> {
 
   void _showRoiCalculator() {
     double currentTotalValue = _totalInvestmentValue;
+    // SIMULASI: Saat ini menggunakan asumsi spread 5% untuk keperluan demo DevOps.
+    // TODO: Ambil data modal riil (average purchase price) dari database transactions.
     double totalBaseValue = currentTotalValue * 0.95; 
     final double currentProfit = currentTotalValue - totalBaseValue;
     final double roiCycle = totalBaseValue > 0 ? (currentProfit / totalBaseValue) * 100 : 0.0;
@@ -1715,118 +1716,6 @@ class _HomePageState extends State<HomePage> {
               '💡 CATATAN LIVE:\n'
               'Angka di atas berubah otomatis setiap 10 detik mengikuti fluktuasi harga pasar sapi di dashboard utama. Gunakan data ini untuk menentukan momen Jual/Beli yang tepat.',
         }),
-      ),
-    );
-  }
-}
-
-// Sparkline Painter for mini charts
-class SparklinePainter extends CustomPainter {
-  final List<double> data;
-  final Color color;
-  SparklinePainter(this.data, this.color);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (data.length < 2) return;
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-
-    final path = Path();
-    final double dx = size.width / (data.length - 1);
-    final double max = data.reduce((a, b) => a > b ? a : b);
-    final double min = data.reduce((a, b) => a < b ? a : b);
-    final double range = max - min == 0 ? 1 : max - min;
-
-    for (int i = 0; i < data.length; i++) {
-      final x = i * dx;
-      final y = size.height - ((data[i] - min) / range * size.height);
-      if (i == 0) path.moveTo(x, y);
-      else path.lineTo(x, y);
-    }
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
-}
-
-class InvestCowIcon extends StatelessWidget {
-  const InvestCowIcon({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 120,
-      height: 120,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          colors: [Color(0xFF00BCD4), Color(0xFF1976D2)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x33000000),
-            offset: Offset(0, 10),
-            blurRadius: 20,
-          ),
-        ],
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Outer ring
-          Container(
-            width: 116,
-            height: 116,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.25), width: 2),
-            ),
-          ),
-          // Trend up line
-          Icon(
-            Icons.trending_up,
-            color: Colors.white,
-            size: 54,
-          ),
-          // Small dot accent (represents price point)
-          Positioned(
-            right: 34,
-            top: 38,
-            child: Container(
-              width: 10,
-              height: 10,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Tooltip(
-            message: 'Menu InvestCow',
-            child: InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const MenuPage()),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.menu),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

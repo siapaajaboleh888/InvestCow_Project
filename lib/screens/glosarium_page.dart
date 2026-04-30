@@ -29,7 +29,7 @@ class _GlosariumPageState extends State<GlosariumPage> {
     {
       'term': 'Total Est. Nilai Investasi',
       'desc': 'Estimasi nilai seluruh aset (sapi) yang Anda miliki jika diuangkan berdasarkan harga pasar saat ini.',
-      'icon': Icons.account_balance_wallet_outlined
+      'icon': Icons.account_balance_wallet
     },
     {
       'term': 'ROI (Return on Investment)',
@@ -39,17 +39,22 @@ class _GlosariumPageState extends State<GlosariumPage> {
     {
       'term': 'ADG (Average Daily Gain)',
       'desc': 'Rata-rata pertambahan berat badan harian pada sapi dalam periode tertentu. Semakin tinggi ADG, semakin cepat nilai aset Anda bertambah.',
-      'icon': Icons.monitor_weight_outlined
+      'icon': Icons.show_chart
     },
     {
       'term': 'Fattening (Penggemukan)',
       'desc': 'Program pemberian pakan intensif untuk meningkatkan bobot sapi secara cepat sebelum dipasarkan.',
-      'icon': Icons.trending_up_outlined
+      'icon': Icons.trending_up
     },
     {
       'term': 'Ticker Code',
       'desc': 'Kode unik identitas jenis sapi di pasar InvestCow. Contoh: MADURA untuk Sapi Madura, PO-01 untuk Sapi Peranakan Ongole.',
-      'icon': Icons.qr_code_outlined
+      'icon': Icons.qr_code
+    },
+    {
+      'term': 'Sentimen Pasar',
+      'desc': 'Kondisi psikologis kolektif para investor yang tercermin dalam pergerakan harga dan volume transaksi (Positif/Bullish atau Negatif/Bearish).',
+      'icon': Icons.insights
     },
     {
       'term': 'Bullish',
@@ -99,12 +104,12 @@ class _GlosariumPageState extends State<GlosariumPage> {
     {
       'term': 'Unit',
       'desc': 'Satuan kepemilikan aset di InvestCow. 1 Unit berarti kepemilikan atas 1 ekor sapi secara utuh.',
-      'icon': Icons.inventory_2_outlined
+      'icon': Icons.category
     },
     {
       'term': 'Konsentrat',
       'desc': 'Pakan padat nutrisi tinggi yang digunakan untuk mempercepat pertumbuhan berat badan sapi.',
-      'icon': Icons.grass_outlined
+      'icon': Icons.eco
     },
     {
       'term': 'Lindung Nilai (Hedge)',

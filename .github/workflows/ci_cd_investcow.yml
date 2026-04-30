@@ -1,4 +1,4 @@
-name: InvestCow DevOps CI/CD Pipeline
+name: InvestCow CI/CD
 
 on:
   push:
@@ -8,45 +8,33 @@ on:
 
 jobs:
   devops-cycle:
+    name: "🚀 DevOps Pipeline"
     runs-on: ubuntu-latest
     
     steps:
-    - name: "🚀 DEVOPS PHASE 1: PLANNING & CODE"
-      uses: actions/checkout@v4
-    
-    - name: "🛠️ DEVOPS PHASE 2: BUILD (Backend)"
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        
-    - name: "Install Dependencies"
-      run: |
-        cd backend
-        npm install
-        
-    - name: "🧪 DEVOPS PHASE 3: TEST (Backend Unit Testing)"
-      run: |
-        cd backend
-        npm test
+      - name: "Clone Repository"
+        uses: actions/checkout@v4
 
-    - name: "🛠️ DEVOPS PHASE 2: BUILD (Flutter/Frontend)"
-      uses: subosito/flutter-action@v2
-      with:
-        channel: 'stable'
-        architecture: x64
-        
-    - name: "Flutter Dependencies"
-      run: flutter pub get
-    
-    - name: "🔍 CODE QUALITY: Linting (Static Analysis)"
-      run: flutter analyze --no-fatal-infos --no-fatal-warnings || echo "Linting passed"
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-    - name: "🧪 DEVOPS PHASE 3: TEST (Flutter Unit Testing)"
-      run: flutter test
+      - name: "Backend Analysis"
+        run: |
+          cd backend
+          npm install
+          npm test
 
-    - name: "📦 DEVOPS PHASE 4: RELEASE (Build Verification)"
-      run: |
-        flutter build web --release
+      - name: "Setup Flutter"
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
 
-    - name: "✅ DEVOPS STATUS"
-      run: echo "InvestCow Pipeline Successfully Executed"
+      - name: "Frontend Analysis"
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-infos
+          flutter test
+          flutter build web --release

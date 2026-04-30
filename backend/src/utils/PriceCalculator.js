@@ -43,7 +43,13 @@ class PriceCalculator {
         const newPricePerKg = pricePerKg * (1 + marketChangePercent);
 
         // 4. Hitung harga total (Adil & Transparan)
-        const newPrice = newWeight * newPricePerKg;
+        let newPrice = newWeight * newPricePerKg;
+
+        // 5. Safety Floor: Mencegah penurunan drastis (>2%) dalam satu siklus simulasi
+        const minSafetyPrice = (currentWeight * pricePerKg) * 0.98;
+        if (newPrice < minSafetyPrice) {
+            newPrice = minSafetyPrice;
+        }
 
         return {
             newWeight,
