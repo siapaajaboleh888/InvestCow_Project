@@ -31,7 +31,7 @@ const upload = multer({ storage });
 router.get('/products-public', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, name, ticker_code, description, price, prev_price, target_price, quota, image_url, cctv_url, market_sentiment FROM products ORDER BY id DESC',
+      'SELECT id, name, ticker_code, description, price, prev_price, target_price, quota, image_url, cctv_url, market_sentiment, weight, health, age FROM products ORDER BY id DESC',
     );
     return res.json(rows);
   } catch (e) {
@@ -60,7 +60,7 @@ router.post(
 router.get('/products', authMiddleware, adminOnly, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, name, ticker_code, description, price, prev_price, target_price, quota, image_url, cctv_url, market_sentiment FROM products ORDER BY id DESC',
+      'SELECT id, name, ticker_code, description, price, prev_price, target_price, quota, image_url, cctv_url, market_sentiment, weight, health, age FROM products ORDER BY id DESC',
     );
     return res.json(rows);
   } catch (e) {

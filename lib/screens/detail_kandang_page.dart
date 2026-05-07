@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'cctv_page.dart';
+import '../services/api_client.dart';
 
 class DetailKandangPage extends StatelessWidget {
   final Map<String, dynamic> barn;
+  final ApiClient _client = ApiClient();
   
-  const DetailKandangPage({super.key, required this.barn});
+  DetailKandangPage({super.key, required this.barn});
 
   @override
   Widget build(BuildContext context) {
@@ -34,14 +36,18 @@ class DetailKandangPage extends StatelessWidget {
               height: 200,
               decoration: BoxDecoration(
                 color: Colors.brown[100],
-                image: barn['image_url'] != null 
+                image: barn['image_url'] != null && barn['image_url'].toString().isNotEmpty
                   ? DecorationImage(
-                      image: NetworkImage(barn['image_url']),
+                      image: NetworkImage(
+                        barn['image_url'].toString().startsWith('http') 
+                          ? barn['image_url'] 
+                          : '${_client.baseUrl}${barn['image_url'].toString().startsWith('/') ? '' : '/'}${barn['image_url']}'
+                      ),
                       fit: BoxFit.cover,
                     )
                   : null,
               ),
-              child: barn['image_url'] == null 
+              child: (barn['image_url'] == null || barn['image_url'].toString().isEmpty)
                 ? Icon(Icons.pets, size: 100, color: Colors.brown[300])
                 : null,
             ),
@@ -58,6 +64,8 @@ class DetailKandangPage extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            _buildGradeChip(barn),
+                            const SizedBox(height: 8),
                             Text(
                               barn['name'],
                               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -226,6 +234,82 @@ class DetailKandangPage extends StatelessWidget {
             )
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildGradeChip(Map<String, dynamic> barn) {
+    // Parameter Penilaian (Harga adalah harga 1 ekor utuh)
+    final double price = double.tryParse(barn['price'].toString()) ?? 0;
+    
+    // Jika data dari API kosong, berikan default yang "standar" (Grade B/C), bukan sempurna
+    final double weight = double.tryParse(barn['weight'].toString()) ?? 280; // Default 280kg
+    final double health = double.tryParse(barn['health'].toString()) ?? 85;  // Default sehat normal
+    final double age = double.tryParse(barn['age'].toString()) ?? 12;        // Default masih muda
+
+    // Kalkulasi Skor Penilaian (Maksimal Poin: 10)
+    int score = 0;
+    
+    // 1. Indikator Bobot
+    if (weight >= 450) score += 3;
+    else if (weight >= 350) score += 2;
+    else score += 1;
+
+    // 2. Indikator Kesehatan
+    if (health >= 95) score += 3;
+    else if (health >= 85) score += 2;
+    else score += 1;
+
+    // 3. Indikator Nilai Aset (Harga Per Ekor Asli)
+    if (price >= 35000000) score += 3;
+    else if (price >= 20000000) score += 2;
+    else score += 1;
+
+    // 4. Indikator Umur Produktif (Panen ideal: 18 - 36 bulan)
+    if (age >= 18 && age <= 36) score += 1;
+
+    // Penentuan Grade Akhir
+    String grade = 'C';
+    String desc = 'Sapi Bakalan (Standar)';
+    Color bgColor = Colors.grey[200]!;
+    Color textColor = Colors.grey[800]!;
+    IconData icon = Icons.info_outline;
+
+    if (score >= 9) { // Syarat ketat: Harus skor 9 atau 10
+      grade = 'A';
+      desc = 'Premium (Siap Panen)';
+      bgColor = Colors.amber[100]!;
+      textColor = Colors.amber[900]!;
+      icon = Icons.workspace_premium;
+    } else if (score >= 6) { // Skor 6, 7, 8
+      grade = 'B';
+      desc = 'Kualitas Sangat Baik';
+      bgColor = Colors.blue[100]!;
+      textColor = Colors.blue[900]!;
+      icon = Icons.verified;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: textColor.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: textColor),
+          const SizedBox(width: 6),
+          Text(
+            'Grade $grade - $desc',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
+          ),
+        ],
       ),
     );
   }
