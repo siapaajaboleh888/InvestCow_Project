@@ -1,6 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'api_client.dart';
 
 /// Service untuk handle autentikasi user
@@ -34,12 +33,17 @@ class AuthService {
       if (!rememberMe) {
         final timestamp = prefs.getString(_keyLoginTimestamp);
         if (timestamp != null) {
-          final loginTime = DateTime.parse(timestamp);
-          final now = DateTime.now();
-          final difference = now.difference(loginTime);
+          try {
+            final loginTime = DateTime.parse(timestamp);
+            final now = DateTime.now();
+            final difference = now.difference(loginTime);
 
-          // Auto logout setelah 24 jam jika tidak remember me
-          if (difference.inHours > 24) {
+            // Auto logout setelah 24 jam jika tidak remember me
+            if (difference.inHours > 24) {
+              await logout();
+              return false;
+            }
+          } catch (_) {
             await logout();
             return false;
           }
@@ -64,7 +68,7 @@ class AuthService {
     await prefs.setBool(_keyIsLoggedIn, true);
     await prefs.setString(_keyUserEmail, email);
     await prefs.setString(_keyUserName, (data['display_name'] ?? 'User').toString());
-    await prefs.setString(_keyUserId, data['id'].toString());
+    await prefs.setString(_keyUserId, (data['id'] ?? '').toString());
     await prefs.setString(_keyRole, (data['role'] ?? 'user').toString());
     await prefs.setBool(_keyRememberMe, rememberMe);
     await prefs.setString(_keyLoginMethod, 'email');
@@ -98,7 +102,7 @@ class AuthService {
     await prefs.setBool(_keyIsLoggedIn, true);
     await prefs.setString(_keyUserEmail, email);
     await prefs.setString(_keyUserName, displayName);
-    await prefs.setString(_keyUserId, data['id'].toString());
+    await prefs.setString(_keyUserId, (data['id'] ?? '').toString());
     await prefs.setBool(_keyRememberMe, true);
     await prefs.setString(_keyLoginMethod, 'email');
     await prefs.setString(_keyLoginTimestamp, DateTime.now().toIso8601String());
@@ -168,8 +172,7 @@ class AuthService {
 
   /// Logout user - hapus semua data
   Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear(); // Hapus semua data
+    await clearUserData(); // Hanya bersihkan data user, bukan setting lainnya seperti remember me / local kas edits
   }
 
   /// Ambil nama user

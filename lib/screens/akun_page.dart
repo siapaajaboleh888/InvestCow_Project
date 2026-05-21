@@ -434,26 +434,39 @@ class _AkunPageState extends State<AkunPage> {
                 return;
               }
 
-              // Update profile
-              await _authService.updateProfile(newName, newEmail);
+              try {
+                // Update profile
+                await _authService.updateProfile(newName, newEmail);
 
-              // Reload user data
-              await _loadUserData();
+                // Reload user data
+                await _loadUserData();
 
-              if (!mounted) return;
-              Navigator.pop(context);
+                if (!mounted) return;
+                Navigator.pop(context);
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Profil berhasil diperbarui'),
-                  backgroundColor: Colors.green,
-                ),
-              );
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Profil berhasil diperbarui'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Gagal memperbarui profil: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             },
             child: const Text('Simpan'),
           ),
         ],
       ),
-    );
+    ).then((_) {
+      nameController.dispose();
+      emailController.dispose();
+    });
   }
 }

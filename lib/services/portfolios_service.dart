@@ -10,7 +10,9 @@ class PortfoliosService {
   Future<List<Map<String, dynamic>>> list() async {
     final token = await _auth.getToken();
     final uri = _client.uri('/portfolios');
-    final res = await http.get(uri, headers: _client.jsonHeaders(token: token));
+    final res = await http
+        .get(uri, headers: _client.jsonHeaders(token: token))
+        .timeout(const Duration(seconds: 15));
     if (res.statusCode != 200) {
       throw Exception('Gagal memuat portofolio (${res.statusCode})');
     }
@@ -21,11 +23,13 @@ class PortfoliosService {
   Future<Map<String, dynamic>> create(String name) async {
     final token = await _auth.getToken();
     final uri = _client.uri('/portfolios');
-    final res = await http.post(
-      uri,
-      headers: _client.jsonHeaders(token: token),
-      body: jsonEncode({'name': name}),
-    );
+    final res = await http
+        .post(
+          uri,
+          headers: _client.jsonHeaders(token: token),
+          body: jsonEncode({'name': name}),
+        )
+        .timeout(const Duration(seconds: 15));
     if (res.statusCode != 201) {
       throw Exception('Gagal membuat portofolio (${res.statusCode})');
     }

@@ -41,12 +41,39 @@ class _KasPageState extends State<KasPage> {
       final user = await _authService.getMe();
       final transactions = await _trxService.listAll();
       
+      final prefs = await SharedPreferences.getInstance();
+      final editsStr = prefs.getString('kas_edits') ?? '{}';
+      final deletedStr = prefs.getString('kas_deleted') ?? '[]';
+      final Map<String, dynamic> localEdits = jsonDecode(editsStr);
+      final List<dynamic> localDeleted = jsonDecode(deletedStr);
+      final List<int> deletedIds = localDeleted.map((e) => int.tryParse(e.toString()) ?? 0).toList();
+      
       if (mounted) {
         setState(() {
-          saldoKas = _toDouble(user['balance']);
+          double adjustment = 0.0;
+          final List<Map<String, dynamic>> mappedList = [];
           
-          // Map backend transactions to local format
-          riwayatTransaksi = transactions.map((t) {
+          for (var t in transactions) {
+            final id = t['id'];
+            final idStr = id?.toString() ?? '';
+            final idInt = int.tryParse(idStr) ?? 0;
+            
+            // 1. Skip if deleted locally
+            if (id != null && deletedIds.contains(idInt)) {
+              final type = t['type']?.toString().toLowerCase();
+              final isTopUp = type == 'topup' || type == 'deposit';
+              double nominal = _toDouble(t['amount']);
+              if (nominal <= 0) {
+                nominal = _toDouble(t['quantity']) * _toDouble(t['price']);
+              }
+              if (isTopUp) {
+                adjustment -= nominal;
+              } else {
+                adjustment += nominal;
+              }
+              continue;
+            }
+            
             final type = t['type']?.toString().toLowerCase();
             String displayType = 'Pengeluaran';
             if (type == 'topup' || type == 'deposit') displayType = 'Top Up';
@@ -56,19 +83,34 @@ class _KasPageState extends State<KasPage> {
               nominal = _toDouble(t['quantity']) * _toDouble(t['price']);
             }
             
-            return {
+            // 2. Apply edit locally
+            if (id != null && localEdits.containsKey(idStr)) {
+              final double newNominal = _toDouble(localEdits[idStr]);
+              if (displayType == 'Top Up') {
+                adjustment += (newNominal - nominal);
+              } else {
+                adjustment -= (newNominal - nominal);
+              }
+              nominal = newNominal;
+            }
+            
+            mappedList.add({
+              'id': id,
               'jenis': displayType,
               'nominal': nominal,
               'metode': t['note'] ?? (type == 'topup' ? 'Saldo Utama' : 'Investasi'),
               'tanggal': DateTime.tryParse(t['occurred_at']?.toString() ?? '') ?? DateTime.now(),
               'status': 'Berhasil',
               'original_type': type,
-            };
-          }).toList();
+            });
+          }
+          
+          saldoKas = _toDouble(user['balance']) + adjustment;
+          riwayatTransaksi = mappedList;
         });
       }
     } catch (e) {
-      print('Error loading kas data: $e');
+      debugPrint('Error loading kas data: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -94,7 +136,9 @@ class _KasPageState extends State<KasPage> {
       await _authService.topUp(nominal, method: metode);
       await _loadKasData(); // Reload everything from backend
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Top up gagal: $e'), backgroundColor: Colors.red));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Top up gagal: $e'), backgroundColor: Colors.red));
+      }
     }
   }
 
@@ -323,8 +367,13 @@ class _KasPageState extends State<KasPage> {
 
           // List Riwayat
           Expanded(
-            child: riwayatTransaksi.isEmpty
-                ? Center(
+            child: Builder(
+              builder: (context) {
+                final filteredList = riwayatTransaksi
+                    .where((e) => _filter == 'Semua' || e['jenis'] == _filter)
+                    .toList();
+                if (filteredList.isEmpty) {
+                  return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -342,7 +391,7 @@ class _KasPageState extends State<KasPage> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Belum ada transaksi',
+                          riwayatTransaksi.isEmpty ? 'Belum ada transaksi' : 'Tidak ada transaksi $_filter',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -351,7 +400,9 @@ class _KasPageState extends State<KasPage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Tap tombol "Top Up Saldo" untuk memulai',
+                          riwayatTransaksi.isEmpty
+                              ? 'Tap tombol "Top Up Saldo" untuk memulai'
+                              : 'Coba ubah filter transaksi Anda',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey[500],
@@ -359,189 +410,208 @@ class _KasPageState extends State<KasPage> {
                         ),
                       ],
                     ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: riwayatTransaksi
-                        .where((e) => _filter == 'Semua' || e['jenis'] == _filter)
-                        .length,
-                    itemBuilder: (context, index) {
-                      final list = riwayatTransaksi
-                          .where((e) => _filter == 'Semua' || e['jenis'] == _filter)
-                          .toList();
-                      final transaksi = list[index];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        elevation: 0,
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: Colors.grey[200]!),
-                        ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.all(16),
-                          onTap: () async {
-                            // Edit nominal sederhana
-                            final controller = TextEditingController(
-                              text: (transaksi['nominal'] as double)
-                                  .toStringAsFixed(0),
-                            );
-                            final changed = await showDialog<double>(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: const Text('Edit nominal'),
-                                content: TextField(
-                                  controller: controller,
-                                  keyboardType: TextInputType.number,
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(ctx),
-                                    child: const Text('Batal'),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      final v = double.tryParse(controller.text);
-                                      if (v != null && v > 0) {
-                                        Navigator.pop(ctx, v);
-                                      }
-                                    },
-                                    child: const Text('Simpan'),
-                                  )
-                                ],
+                  );
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: filteredList.length,
+                  itemBuilder: (context, index) {
+                    final transaksi = filteredList[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      elevation: 0,
+                      color: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: Colors.grey[200]!),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.all(16),
+                        onTap: () async {
+                          // Edit nominal sederhana
+                          final controller = TextEditingController(
+                            text: _toDouble(transaksi['nominal']).toStringAsFixed(0),
+                          );
+                          final changed = await showDialog<double>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Edit nominal'),
+                              content: TextField(
+                                controller: controller,
+                                keyboardType: TextInputType.number,
                               ),
-                            );
-                            if (changed != null) {
-                              setState(() {
-                                final idx = riwayatTransaksi.indexOf(transaksi);
-                                final old = riwayatTransaksi[idx]['nominal'] as double;
-                                riwayatTransaksi[idx]['nominal'] = changed;
-                                if (transaksi['jenis'] == 'Top Up') {
-                                  saldoKas += (changed - old);
-                                } else {
-                                  saldoKas -= (changed - old);
-                                }
-                              });
-                              await _saveKasData();
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('Batal'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    final v = double.tryParse(controller.text);
+                                    if (v != null && v > 0) {
+                                      Navigator.pop(ctx, v);
+                                    }
+                                  },
+                                  child: const Text('Simpan'),
+                                )
+                              ],
+                            ),
+                          );
+                          if (changed != null) {
+                            setState(() {
+                              final idx = riwayatTransaksi.indexOf(transaksi);
+                              final old = _toDouble(riwayatTransaksi[idx]['nominal']);
+                              riwayatTransaksi[idx]['nominal'] = changed;
+                              if (transaksi['jenis'] == 'Top Up') {
+                                saldoKas += (changed - old);
+                              } else {
+                                saldoKas -= (changed - old);
+                              }
+                            });
+                            
+                            // Save to SharedPreferences
+                            final id = transaksi['id'];
+                            if (id != null) {
+                              final prefs = await SharedPreferences.getInstance();
+                              final editsStr = prefs.getString('kas_edits') ?? '{}';
+                              final Map<String, dynamic> localEdits = jsonDecode(editsStr);
+                              localEdits[id.toString()] = changed;
+                              await prefs.setString('kas_edits', jsonEncode(localEdits));
                             }
-                          },
-                          onLongPress: () async {
-                            final ok = await showDialog<bool>(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: const Text('Hapus transaksi?'),
-                                content: const Text('Tindakan ini tidak dapat dibatalkan.'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(ctx, false),
-                                    child: const Text('Batal'),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () => Navigator.pop(ctx, true),
-                                    child: const Text('Hapus'),
-                                  ),
-                                ],
-                              ),
-                            );
-                            if (ok == true) {
-                              setState(() {
-                                final idx = riwayatTransaksi.indexOf(transaksi);
-                                final removed = riwayatTransaksi.removeAt(idx);
-                                final amount = (removed['nominal'] as double);
-                                if (removed['jenis'] == 'Top Up') {
-                                  saldoKas -= amount;
-                                } else {
-                                  saldoKas += amount;
-                                }
-                              });
-                              await _saveKasData();
+                            await _saveKasData();
+                          }
+                        },
+                        onLongPress: () async {
+                          final ok = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Hapus transaksi?'),
+                              content: const Text('Tindakan ini tidak dapat dibatalkan.'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('Batal'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('Hapus'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (ok == true) {
+                            setState(() {
+                              final idx = riwayatTransaksi.indexOf(transaksi);
+                              final removed = riwayatTransaksi.removeAt(idx);
+                              final amount = _toDouble(removed['nominal']);
+                              if (removed['jenis'] == 'Top Up') {
+                                saldoKas -= amount;
+                              } else {
+                                saldoKas += amount;
+                              }
+                            });
+                            
+                            // Save delete to SharedPreferences
+                            final id = transaksi['id'];
+                            if (id != null) {
+                              final prefs = await SharedPreferences.getInstance();
+                              final deletedStr = prefs.getString('kas_deleted') ?? '[]';
+                              final List<dynamic> localDeleted = jsonDecode(deletedStr);
+                              if (!localDeleted.contains(id)) {
+                                localDeleted.add(id);
+                              }
+                              await prefs.setString('kas_deleted', jsonEncode(localDeleted));
                             }
-                          },
-                          leading: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: transaksi['jenis'] == 'Top Up'
-                                  ? Colors.green[50]
-                                  : Colors.red[50],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              transaksi['jenis'] == 'Top Up'
-                                  ? Icons.arrow_downward_rounded
-                                  : Icons.arrow_upward_rounded,
-                              color: transaksi['jenis'] == 'Top Up'
-                                  ? Colors.green[600]
-                                  : Colors.red[600],
-                              size: 24,
-                            ),
+                            await _saveKasData();
+                          }
+                        },
+                        leading: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: transaksi['jenis'] == 'Top Up'
+                                ? Colors.green[50]
+                                : Colors.red[50],
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          title: Text(
-                            transaksi['jenis'],
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16,
-                            ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 4),
-                              Text(
-                                transaksi['metode'] == 'Saldo Utama' ? 'Saldo Utama' : transaksi['metode'],
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${transaksi['tanggal'].day}/${transaksi['tanggal'].month}/${transaksi['tanggal'].year} • ${transaksi['tanggal'].hour}:${transaksi['tanggal'].minute.toString().padLeft(2, '0')}',
-                                style: TextStyle(
-                                  color: Colors.grey[500],
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                          trailing: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                '${transaksi['jenis'] == 'Top Up' ? '+' : '-'} Rp ${transaksi['nominal'].toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}',
-                                style: TextStyle(
-                                  color: transaksi['jenis'] == 'Top Up'
-                                      ? Colors.green[600]
-                                      : Colors.red[600],
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.green[50],
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  transaksi['status'],
-                                  style: TextStyle(
-                                    color: Colors.green[700],
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          child: Icon(
+                            transaksi['jenis'] == 'Top Up'
+                                ? Icons.arrow_downward_rounded
+                                : Icons.arrow_upward_rounded,
+                            color: transaksi['jenis'] == 'Top Up'
+                                ? Colors.green[600]
+                                : Colors.red[600],
+                            size: 24,
                           ),
                         ),
-                      );
-                    },
-                  ),
+                        title: Text(
+                          transaksi['jenis'],
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 4),
+                            Text(
+                              transaksi['metode'] == 'Saldo Utama' ? 'Saldo Utama' : transaksi['metode'],
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${transaksi['tanggal'].day}/${transaksi['tanggal'].month}/${transaksi['tanggal'].year} • ${transaksi['tanggal'].hour}:${transaksi['tanggal'].minute.toString().padLeft(2, '0')}',
+                              style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '${transaksi['jenis'] == 'Top Up' ? '+' : '-'} Rp ${_toDouble(transaksi['nominal']).toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}',
+                              style: TextStyle(
+                                color: transaksi['jenis'] == 'Top Up'
+                                    ? Colors.green[600]
+                                    : Colors.red[600],
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.green[50],
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                transaksi['status'],
+                                style: TextStyle(
+                                  color: Colors.green[700],
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              }
+            ),
           ),
         ],
       ),
@@ -563,6 +633,12 @@ class _TopUpBottomSheetState extends State<TopUpBottomSheet> {
   final TextEditingController _nominalController = TextEditingController();
   String? selectedMetode;
   final List<int> nominalCepat = [50000, 100000, 200000, 500000, 1000000];
+
+  @override
+  void dispose() {
+    _nominalController.dispose();
+    super.dispose();
+  }
 
   // Daftar metode pembayaran dengan logo yang lebih detail
   final List<Map<String, dynamic>> metodePembayaran = [

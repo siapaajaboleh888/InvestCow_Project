@@ -77,6 +77,7 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
   }
 
   Future<void> _loadProducts() async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -84,15 +85,17 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
     try {
       final token = await _authService.getToken();
       final uri = _client.uri('/admin/products');
-      final res = await http.get(uri, headers: _client.jsonHeaders(token: token));
+      final res = await http.get(uri, headers: _client.jsonHeaders(token: token)).timeout(const Duration(seconds: 15));
       if (res.statusCode != 200) {
         throw Exception('Gagal memuat produk (${res.statusCode})');
       }
       final data = jsonDecode(res.body) as List;
+      if (!mounted) return;
       setState(() {
         _products = data.cast<Map<String, dynamic>>();
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
       });
@@ -300,7 +303,7 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
                       uri,
                       headers: _client.jsonHeaders(token: token),
                       body: jsonEncode(body),
-                    );
+                    ).timeout(const Duration(seconds: 15));
                   } else {
                     final id = existing['id'];
                     final uri = _client.uri('/admin/products/$id');
@@ -308,7 +311,7 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
                       uri,
                       headers: _client.jsonHeaders(token: token),
                       body: jsonEncode(body),
-                    );
+                    ).timeout(const Duration(seconds: 15));
                   }
 
                   if (res.statusCode != 200 && res.statusCode != 201) {
@@ -369,7 +372,7 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
     try {
       final token = await _authService.getToken();
       final uri = _client.uri('/admin/products/$id');
-      final res = await http.delete(uri, headers: _client.jsonHeaders(token: token));
+      final res = await http.delete(uri, headers: _client.jsonHeaders(token: token)).timeout(const Duration(seconds: 15));
       if (res.statusCode != 204) {
         throw Exception('Gagal menghapus produk (${res.statusCode})');
       }
@@ -453,7 +456,7 @@ class _AdminProductsTabState extends State<_AdminProductsTab> {
                           ),
                           IconButton(
                             icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _deleteProduct(p['id'] as int),
+                            onPressed: () => _deleteProduct(int.tryParse(p['id'].toString()) ?? 0),
                           ),
                         ],
                       ),
@@ -493,6 +496,7 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
   }
 
   Future<void> _loadUsers() async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -500,15 +504,17 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
     try {
       final token = await _authService.getToken();
       final uri = _client.uri('/admin/users');
-      final res = await http.get(uri, headers: _client.jsonHeaders(token: token));
+      final res = await http.get(uri, headers: _client.jsonHeaders(token: token)).timeout(const Duration(seconds: 15));
       if (res.statusCode != 200) {
         throw Exception('Gagal memuat user (${res.statusCode})');
       }
       final data = jsonDecode(res.body) as List;
+      if (!mounted) return;
       setState(() {
         _users = data.cast<Map<String, dynamic>>();
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
       });
@@ -547,7 +553,7 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
     try {
       final token = await _authService.getToken();
       final uri = _client.uri('/admin/users/$id');
-      final res = await http.delete(uri, headers: _client.jsonHeaders(token: token));
+      final res = await http.delete(uri, headers: _client.jsonHeaders(token: token)).timeout(const Duration(seconds: 15));
       if (res.statusCode != 204) {
         throw Exception('Gagal menghapus user (${res.statusCode})');
       }
@@ -594,7 +600,7 @@ class _AdminUsersTabState extends State<_AdminUsersTab> {
         itemCount: _users.length,
         itemBuilder: (context, index) {
           final u = _users[index];
-          final id = u['id'] as int;
+          final id = int.tryParse(u['id'].toString()) ?? 0;
           final email = u['email']?.toString() ?? '-';
           final role = u['role']?.toString() ?? '-';
           final createdAt = u['created_at']?.toString() ?? '';
@@ -656,6 +662,7 @@ class _AdminHealthTabState extends State<_AdminHealthTab> {
   }
 
   Future<void> _loadRequests() async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -663,16 +670,18 @@ class _AdminHealthTabState extends State<_AdminHealthTab> {
     try {
       final token = await _authService.getToken();
       final uri = _client.uri('/admin/health-requests');
-      final res = await http.get(uri, headers: _client.jsonHeaders(token: token));
+      final res = await http.get(uri, headers: _client.jsonHeaders(token: token)).timeout(const Duration(seconds: 15));
       if (res.statusCode != 200) {
         throw Exception('Gagal memuat permintaan (${res.statusCode})');
       }
       final data = jsonDecode(res.body) as List;
+      if (!mounted) return;
       setState(() {
         _requests = data.cast<Map<String, dynamic>>();
       });
     } catch (e) {
       debugPrint('Load health error: $e');
+      if (!mounted) return;
       setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -692,7 +701,7 @@ class _AdminHealthTabState extends State<_AdminHealthTab> {
         uri,
         headers: _client.jsonHeaders(token: token),
         body: jsonEncode(body),
-      );
+      ).timeout(const Duration(seconds: 15));
 
       if (res.statusCode == 200) {
         _loadRequests();
@@ -785,7 +794,7 @@ class _AdminHealthTabState extends State<_AdminHealthTab> {
               itemCount: _requests.length,
               itemBuilder: (context, index) {
                 final r = _requests[index];
-                final status = r['status'] as String;
+                final status = r['status']?.toString() ?? 'pending';
                 Color sColor = Colors.orange;
                 if (status == 'confirmed') sColor = Colors.blue;
                 if (status == 'completed') sColor = Colors.green;

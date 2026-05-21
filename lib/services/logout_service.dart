@@ -78,24 +78,20 @@ class LogoutService {
       // Close loading dialog
       Navigator.of(context).pop();
 
+      // Show success message (will persist across navigation transitions)
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Anda telah keluar'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+
       // Navigate ke login page dan hapus semua route sebelumnya
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const LoginPage()),
         (route) => false,
       );
-
-      // Show success message
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Anda telah keluar'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      });
     } catch (e) {
       if (!context.mounted) return;
 

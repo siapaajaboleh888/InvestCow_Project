@@ -366,6 +366,7 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
   static const int _maxRetries = 3;
   Timer? _retryTimer;
   Timer? _timeoutTimer;
+  Timer? _bufferingTimer;
   int _retryCountdown = 5;
 
   String get _videoId {
@@ -403,6 +404,8 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
     _ytController?.close();
     _ytController = null;
     _timeoutTimer?.cancel();
+    _bufferingTimer?.cancel();
+    _bufferingTimer = null;
 
     if (mounted) {
       setState(() {
@@ -441,16 +444,33 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
         return;
       }
 
-      // Player sudah berhasil bermain
-      if (state.playerState == PlayerState.playing &&
-          _status == _PlayerStatus.loading) {
-        _timeoutTimer?.cancel();
-        if (mounted) {
-          setState(() {
-            _status = _PlayerStatus.ready;
-            _retryCount = 0; // reset retry setelah berhasil
+      // Deteksi buffering terhenti (watchdog)
+      if (state.playerState == PlayerState.buffering) {
+        if (_bufferingTimer == null || !_bufferingTimer!.isActive) {
+          debugPrint('⏱ CCTV buffering detected, starting 15s watchdog...');
+          _bufferingTimer = Timer(const Duration(seconds: 15), () {
+            if (mounted && _status == _PlayerStatus.ready) {
+              debugPrint('⏱ CCTV buffering watchdog fired after 15 seconds');
+              _handlePlaybackError('Koneksi tidak stabil / buffering terhenti');
+            }
           });
         }
+      } else if (state.playerState == PlayerState.playing) {
+        _bufferingTimer?.cancel();
+        _bufferingTimer = null;
+
+        if (_status == _PlayerStatus.loading) {
+          _timeoutTimer?.cancel();
+          if (mounted) {
+            setState(() {
+              _status = _PlayerStatus.ready;
+              _retryCount = 0; // reset retry setelah berhasil
+            });
+          }
+        }
+      } else if (state.playerState == PlayerState.paused) {
+        _bufferingTimer?.cancel();
+        _bufferingTimer = null;
       }
     });
 
@@ -529,6 +549,7 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
   void dispose() {
     _retryTimer?.cancel();
     _timeoutTimer?.cancel();
+    _bufferingTimer?.cancel();
     _ytController?.close();
     super.dispose();
   }

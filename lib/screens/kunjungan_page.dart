@@ -180,7 +180,11 @@ class _KunjunganPageState extends State<KunjunganPage> {
           },
         );
       },
-    );
+    ).then((_) {
+      namaController.dispose();
+      telpController.dispose();
+      keteranganController.dispose();
+    });
   }
 
   // Fungsi untuk mengirim konfirmasi via WhatsApp

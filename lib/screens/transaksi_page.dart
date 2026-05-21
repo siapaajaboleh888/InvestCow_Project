@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:investcow_app/services/auth_service.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import '../services/transactions_service.dart';
 
 class TransaksiPage extends StatefulWidget {
@@ -45,7 +42,7 @@ class _TransaksiPageState extends State<TransaksiPage> with SingleTickerProvider
       final List<Map<String, dynamic>> wallet = [];
 
       for (var t in allTrx) {
-        final type = t['type'].toString().toUpperCase();
+        final type = t['type']?.toString().toUpperCase() ?? '';
         if (type == 'BUY' || type == 'SELL') {
           investment.add(t);
         } else if (type == 'TOPUP' || type == 'WITHDRAW' || t['symbol'] == 'CASH') {
@@ -78,6 +75,12 @@ class _TransaksiPageState extends State<TransaksiPage> with SingleTickerProvider
     if (val is num) return val.toDouble();
     if (val is String) return double.tryParse(val) ?? 0.0;
     return 0.0;
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -147,7 +150,7 @@ class _TransaksiPageState extends State<TransaksiPage> with SingleTickerProvider
       itemCount: _investmentTrx.length,
       itemBuilder: (context, index) {
         final trx = _investmentTrx[index];
-        final type = trx['type'].toString().toLowerCase();
+        final type = trx['type']?.toString().toLowerCase() ?? '';
         
         final isBuy = type == 'buy';
         final isSell = type == 'sell';
