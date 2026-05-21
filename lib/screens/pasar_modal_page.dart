@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
 import 'dart:convert';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
@@ -50,14 +49,14 @@ class _PasarModalPageState extends State<PasarModalPage> {
   final _trxService = TransactionsService();
   final _portfolioService = PortfoliosService();
   IO.Socket? socket;
-  
+
   // State
   List<Map<String, dynamic>> _products = [];
   Map<String, dynamic>? _selectedProduct;
   List<Candle> _candles = [];
   bool _isLoading = true;
   String? _error;
-  
+
   double _userBalance = 0;
   String _displayName = "";
   List<Map<String, dynamic>> _portfolioSummary = [];
@@ -71,6 +70,10 @@ class _PasarModalPageState extends State<PasarModalPage> {
   String? _marketSentiment;
   double _currentWeight = 0;
   double _pricePerKg = 0;
+
+  // Socket status
+  bool _socketConnected = false;
+  bool _socketReconnecting = false;
 
   @override
   void initState() {
@@ -118,16 +121,53 @@ class _PasarModalPageState extends State<PasarModalPage> {
     socket = IO.io(url, IO.OptionBuilder()
       .setTransports(['websocket'])
       .disableAutoConnect()
+      .enableReconnection()          // ✅ auto-reconnect
+      .setReconnectionAttempts(10)   // max 10 percobaan
+      .setReconnectionDelay(2000)    // delay 2 detik antar percobaan
+      .setReconnectionDelayMax(10000) // max delay 10 detik
       .build());
 
     socket!.onConnect((_) {
-      print('Connected to Socket.io');
+      debugPrint('✅ Socket.io terhubung');
+      if (mounted) {
+        setState(() {
+          _socketConnected = true;
+          _socketReconnecting = false;
+        });
+      }
+    });
+
+    socket!.onDisconnect((_) {
+      debugPrint('⚠️ Socket.io terputus, menunggu reconnect...');
+      if (mounted) {
+        setState(() {
+          _socketConnected = false;
+          _socketReconnecting = true;
+        });
+      }
+    });
+
+    socket!.onReconnect((_) {
+      debugPrint('🔄 Socket.io berhasil reconnect');
+      if (mounted) {
+        setState(() {
+          _socketConnected = true;
+          _socketReconnecting = false;
+        });
+        // Refresh data setelah reconnect
+        if (_selectedProduct != null) {
+          _fetchHistory(_selectedProduct!['id']);
+        }
+      }
+    });
+
+    socket!.onReconnectError((error) {
+      debugPrint('❌ Socket.io gagal reconnect: $error');
     });
 
     socket!.on('price-update-batch', (dataList) {
       if (dataList != null && dataList is List && _selectedProduct != null) {
         final selectedId = _selectedProduct!['id'].toString();
-        // Temukan data untuk sapi yang sedang dipilih user
         final data = dataList.firstWhere(
           (item) => item['productId'].toString() == selectedId,
           orElse: () => null,
@@ -136,26 +176,25 @@ class _PasarModalPageState extends State<PasarModalPage> {
         if (data != null) {
           final newPrice = _toDouble(data['newPrice']);
           final candleData = data['candle'];
-          
+
           if (!mounted) return;
           setState(() {
             _prevPrice = _currentPrice;
             _currentPrice = newPrice;
             _isPriceUp = _currentPrice >= _prevPrice;
-            _percentChange = _prevPrice > 0.01 
-                ? ((_currentPrice - _prevPrice) / _prevPrice) * 100 
+            _percentChange = _prevPrice > 0.01
+                ? ((_currentPrice - _prevPrice) / _prevPrice) * 100
                 : 0.0;
             _marketSentiment = data['marketSentiment']?.toString();
             _currentWeight = _toDouble(data['currentWeight']);
             _pricePerKg = _toDouble(data['pricePerKg']);
-            
-            // Tambahkan data candle baru ke chart secara real-time
+
             if (candleData != null) {
               double h = _toDouble(candleData['high']);
               double l = _toDouble(candleData['low']);
               double o = _toDouble(candleData['open']);
               double c = _toDouble(candleData['close']);
-              
+
               if (h == l) { h += 1.0; l -= 1.0; }
 
               final newCandle = Candle(
@@ -164,23 +203,12 @@ class _PasarModalPageState extends State<PasarModalPage> {
                 low: l,
                 open: o,
                 close: c,
-                volume: 1.0, 
+                volume: 1.0,
               );
-              
-              _candles.insert(0, newCandle);
-              if (_candles.length > 200) _candles.removeLast();
 
-              // Pastikan chart tidak crash jika data masih sedikit
-              if (_candles.length == 1) {
-                 _candles.add(Candle(
-                   date: newCandle.date.subtract(const Duration(minutes: 1)),
-                   high: newCandle.high,
-                   low: newCandle.low,
-                   open: newCandle.open,
-                   close: newCandle.close,
-                   volume: 0,
-                 ));
-              }
+              final raw = List<Candle>.of([newCandle, ..._candles.where((c) => c.volume > 0 || c.date != newCandle.date)]);
+              if (raw.length > 200) raw.removeLast();
+              _candles = _safePadCandles(raw);
             }
           });
         }
@@ -190,32 +218,23 @@ class _PasarModalPageState extends State<PasarModalPage> {
     socket!.on('product-updated', (data) {
       if (data != null && data is Map) {
         final updatedId = data['id'].toString();
-        
+
         if (!mounted) return;
         setState(() {
           final updatedItem = Map<String, dynamic>.from(data);
-          // 1. Update list produk yang tersedia (untuk dropdown)
-          int existingIndex = _products.indexWhere((p) => p['id'].toString() == updatedId);
+          final existingIndex = _products.indexWhere((p) => p['id'].toString() == updatedId);
           if (existingIndex != -1) {
             _products[existingIndex] = updatedItem;
           } else {
-            // Jika produk baru (ditambahkan admin), masukkan ke list
             _products.insert(0, updatedItem);
           }
 
-          // 2. Jika produk yang sedang dibuka oleh user adalah produk yang diupdate
           if (_selectedProduct != null && _selectedProduct!['id'].toString() == updatedId) {
-            // Gunakan referensi yang sama agar DropdownButton tidak error (objek harus ada di list items)
             _selectedProduct = updatedItem;
-            
-            // Update meta internal yang ditampilkan di UI
             _marketSentiment = data['market_sentiment']?.toString();
             _currentPrice = _toDouble(data['price']);
             _currentWeight = _toDouble(data['current_weight']);
             _pricePerKg = _toDouble(data['price_per_kg']);
-            
-            // Jika nama/ticker berubah, ini juga akan otomatis terupdate 
-            // karena build() menggunakan _selectedProduct['name'] dll.
           }
         });
       }
@@ -272,6 +291,48 @@ class _PasarModalPageState extends State<PasarModalPage> {
     }
   }
 
+  /// Pads candles list to at least [minCount] items so the candlesticks
+  /// package never throws a RangeError when it accesses candles[step]
+  /// (step can be up to 31 based on zoom level).
+  List<Candle> _safePadCandles(List<Candle> raw, {int minCount = 35}) {
+    if (raw.isEmpty) {
+      final basePrice = _currentPrice > 10.0 ? _currentPrice : 1000.0;
+      final now = DateTime.now();
+      raw = List.generate(minCount, (i) {
+        return Candle(
+          date: now.subtract(Duration(minutes: minCount - i)),
+          high: basePrice * 1.005,
+          low: basePrice * 0.995,
+          open: basePrice * 0.998,
+          close: basePrice,
+          volume: 1,
+        );
+      });
+      return raw;
+    }
+
+    if (raw.length >= minCount) return raw;
+
+    // Determine interval from existing data
+    final Duration interval = raw.length >= 2
+        ? raw[0].date.difference(raw[1].date).abs()
+        : const Duration(minutes: 1);
+
+    final oldest = raw.last;
+    final List<Candle> padding = [];
+    for (int i = 1; raw.length + padding.length < minCount; i++) {
+      padding.add(Candle(
+        date: oldest.date.subtract(interval * i),
+        high: oldest.high,
+        low: oldest.low,
+        open: oldest.open,
+        close: oldest.close,
+        volume: 0,
+      ));
+    }
+    return [...raw, ...padding];
+  }
+
   Future<void> _fetchHistory(dynamic productId) async {
     try {
       final res = await http.get(_apiClient.uri('/admin/products/$productId/history'));
@@ -279,12 +340,12 @@ class _PasarModalPageState extends State<PasarModalPage> {
         final data = jsonDecode(res.body) as List;
         if (!mounted) return;
         setState(() {
-          _candles = data.map<Candle>((item) {
+          final raw = data.map<Candle>((item) {
             double h = _toDouble(item['high']);
             double l = _toDouble(item['low']);
             double o = _toDouble(item['open']);
             double c = _toDouble(item['close']);
-            
+
             if (h == l) { h += 1.0; l -= 1.0; }
 
             return Candle(
@@ -296,50 +357,20 @@ class _PasarModalPageState extends State<PasarModalPage> {
               volume: _toDouble(item['volume']),
             );
           }).toList();
-          
-          // Ensure at least 2 candles for the chart stability
-          if (_candles.length < 2 && _selectedProduct != null) {
-             final basePrice = _currentPrice > 10.0 ? _currentPrice : 1000.0;
-              final now = DateTime.now();
-              
-              List<Candle> dummy = [];
-              // First candle
-              dummy.add(Candle(
-                date: now.subtract(const Duration(minutes: 5)),
-               high: basePrice * 1.005,
-               low: basePrice * 0.995,
-               open: basePrice * 0.998,
-               close: basePrice,
-               volume: 1,
-             ));
-             // Second candle
-             dummy.add(Candle(
-               date: now,
-               high: basePrice * 1.01,
-               low: basePrice * 0.99,
-               open: basePrice,
-               close: basePrice,
-               volume: 1,
-             ));
-             
-             // Prepend existing if any, or just use dummy
-             if (_candles.isNotEmpty) {
-               dummy.removeLast(); // keep the existing one as latest
-               dummy.addAll(_candles);
-             }
-             
-             _candles = dummy.reversed.toList();
-          }
+
+          _candles = _safePadCandles(raw);
         });
       }
     } catch (e) {
-      print('Error fetching history: $e');
+      debugPrint('Error fetching history: $e');
     }
   }
 
   @override
   void dispose() {
+    socket?.disconnect();
     socket?.dispose();
+    _amountController.dispose();
     super.dispose();
   }
 
@@ -380,9 +411,37 @@ class _PasarModalPageState extends State<PasarModalPage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF131722), // TradingView dark background
+      backgroundColor: const Color(0xFF131722),
       appBar: AppBar(
-        title: const Text('Terminal Pasar Sapi'),
+        title: _socketReconnecting
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.orangeAccent),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('Menyambungkan...',
+                      style: TextStyle(fontSize: 15, color: Colors.orangeAccent)),
+                ],
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _socketConnected
+                        ? Icons.wifi
+                        : Icons.wifi_off,
+                    size: 16,
+                    color: _socketConnected ? Colors.greenAccent : Colors.grey,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('Terminal Pasar Sapi'),
+                ],
+              ),
         backgroundColor: const Color(0xFF1E222D),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -625,7 +684,7 @@ class _PasarModalPageState extends State<PasarModalPage> {
                   BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4)),
                 ],
               ),
-              child: _candles.length < 2 
+              child: _candles.length < 35
                 ? const Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,

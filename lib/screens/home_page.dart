@@ -26,6 +26,7 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> _newsItems = [];
   bool _isLoadingNews = true;
   Timer? _refreshTimer;
+  Timer? _simulationTimer; // ✅ Simpan referensi agar bisa di-cancel
   String _activeTab = 'Ikhtisar';
   
   double _totalOwnedCows = 0.0;
@@ -92,6 +93,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _simulationTimer?.cancel(); // ✅ Hentikan simulasi
     super.dispose();
   }
 
@@ -168,7 +170,7 @@ class _HomePageState extends State<HomePage> {
 
   void _startSimulation() {
     // Simulate minor price changes every 10 seconds to feel "live"
-    Timer.periodic(const Duration(seconds: 10), (timer) {
+    _simulationTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
@@ -177,18 +179,16 @@ class _HomePageState extends State<HomePage> {
         for (var card in _cowPrices) {
           final double change = (0.5 - (DateTime.now().millisecond % 100) / 100.0) * 10000;
           card['price'] = (card['price'] as int) + change.toInt();
-          // Update trend
           card['trend'].removeAt(0);
           card['trend'].add(1.0 + (change / 1000000));
           card['up'] = change >= 0;
           card['change'] = '${change >= 0 ? '+' : ''}${(change / card['price'] * 100).toStringAsFixed(2)}%';
         }
-        
-        // RE-CALCULATE CURRENT PORTFOLIO VALUE LOCALLY
+
         double newValue = 0.0;
         for (var h in _portfolioHoldings) {
           final priceData = _cowPrices.firstWhere(
-            (p) => p['name'].toString().toLowerCase().contains(h['symbol'].toLowerCase()) || 
+            (p) => p['name'].toString().toLowerCase().contains(h['symbol'].toLowerCase()) ||
                    h['symbol'].toLowerCase().contains(p['name'].toString().toLowerCase()),
             orElse: () => {'price': 22450000},
           );
@@ -1022,15 +1022,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildMiniStat(String label, String value) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-      ],
-    );
-  }
 
   Widget _buildInfoCard(String label, String value, IconData icon, Color color) {
     return Container(

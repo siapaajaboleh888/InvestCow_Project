@@ -18,18 +18,21 @@ class CctvLivePlayer extends StatefulWidget {
 class _CctvLivePlayerState extends State<CctvLivePlayer> {
   late YoutubePlayerController _controller;
 
+  String _extractVideoId(String url) {
+    if (url.contains('v=')) {
+      return url.split('v=').last.split('&').first.trim();
+    }
+    if (url.contains('youtu.be/')) {
+      return url.split('youtu.be/').last.split('?').first.trim();
+    }
+    // Default fallback – livestream sapi kandang demo
+    return 'R9jV6_kOk9Y';
+  }
+
   @override
   void initState() {
     super.initState();
-    
-    // Ambil ID Video dari URL
-    String videoId = "R9jV6_kOk9Y"; // Default
-    if (widget.streamUrl.contains("v=")) {
-      videoId = widget.streamUrl.split("v=").last.split("&").first;
-    } else if (widget.streamUrl.contains("youtu.be/")) {
-      videoId = widget.streamUrl.split("youtu.be/").last.split("?").first;
-    }
-
+    final videoId = _extractVideoId(widget.streamUrl);
     _controller = YoutubePlayerController.fromVideoId(
       videoId: videoId,
       autoPlay: true,
@@ -37,11 +40,16 @@ class _CctvLivePlayerState extends State<CctvLivePlayer> {
         showControls: true,
         mute: true,
         showFullscreenButton: true,
-        // Biarkan kosong agar library menyesuaikan dengan domain saat ini secara otomatis
-        // origin: 'http://localhost',
+        showVideoAnnotations: false,
+        strictRelatedVideos: true,
       ),
-
     );
+  }
+
+  @override
+  void dispose() {
+    _controller.close(); // ✅ Penting: tutup controller agar tidak memory leak
+    super.dispose();
   }
 
   @override
@@ -55,11 +63,14 @@ class _CctvLivePlayerState extends State<CctvLivePlayer> {
             children: [
               const Icon(Icons.videocam, color: Colors.red, size: 20),
               const SizedBox(width: 8),
-              Text(
-                widget.title,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              Expanded(
+                child: Text(
+                  widget.title,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 15),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Spacer(),
               const Badge(
                 label: Text('LIVE'),
                 backgroundColor: Colors.red,
@@ -67,14 +78,14 @@ class _CctvLivePlayerState extends State<CctvLivePlayer> {
             ],
           ),
         ),
-        // Container dengan Aspect Ratio untuk IFrame
         AspectRatio(
           aspectRatio: 16 / 9,
           child: Container(
             color: Colors.black,
-            child: YoutubePlayer(
+            child: YoutubePlayerScaffold(
               controller: _controller,
               aspectRatio: 16 / 9,
+              builder: (context, player) => player,
             ),
           ),
         ),
