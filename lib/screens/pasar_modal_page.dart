@@ -116,6 +116,116 @@ class _PasarModalPageState extends State<PasarModalPage> {
     return d;
   }
 
+  bool _isDisposed = false;
+
+  void _onConnect(dynamic _) {
+    debugPrint('✅ Socket.io terhubung');
+    if (_isDisposed || !mounted) return;
+    setState(() {
+      _socketConnected = true;
+      _socketReconnecting = false;
+    });
+  }
+
+  void _onDisconnect(dynamic _) {
+    debugPrint('⚠️ Socket.io terputus, menunggu reconnect...');
+    if (_isDisposed || !mounted) return;
+    setState(() {
+      _socketConnected = false;
+      _socketReconnecting = true;
+    });
+  }
+
+  void _onReconnect(dynamic _) {
+    debugPrint('🔄 Socket.io berhasil reconnect');
+    if (_isDisposed || !mounted) return;
+    setState(() {
+      _socketConnected = true;
+      _socketReconnecting = false;
+    });
+    if (_selectedProduct != null) {
+      _fetchHistory(_selectedProduct!['id']);
+    }
+  }
+
+  void _onReconnectError(dynamic error) {
+    debugPrint('❌ Socket.io gagal reconnect: $error');
+  }
+
+  void _onPriceUpdateBatch(dynamic dataList) {
+    if (_isDisposed || !mounted) return;
+    if (dataList != null && dataList is List && _selectedProduct != null) {
+      final selectedId = _selectedProduct!['id'].toString();
+      final data = dataList.firstWhere(
+        (item) => item['productId'].toString() == selectedId,
+        orElse: () => null,
+      );
+
+      if (data != null) {
+        final newPrice = _toDouble(data['newPrice']);
+        final candleData = data['candle'];
+
+        setState(() {
+          _prevPrice = _currentPrice;
+          _currentPrice = newPrice;
+          _isPriceUp = _currentPrice >= _prevPrice;
+          _percentChange = _prevPrice > 0.01
+              ? ((_currentPrice - _prevPrice) / _prevPrice) * 100
+              : 0.0;
+          _marketSentiment = data['marketSentiment']?.toString();
+          _currentWeight = _toDouble(data['currentWeight']);
+          _pricePerKg = _toDouble(data['pricePerKg']);
+
+          if (candleData != null) {
+            double h = _toDouble(candleData['high']);
+            double l = _toDouble(candleData['low']);
+            double o = _toDouble(candleData['open']);
+            double c = _toDouble(candleData['close']);
+
+            if (h == l) { h += 1.0; l -= 1.0; }
+
+            final newCandle = Candle(
+              date: DateTime.tryParse(candleData['timestamp']?.toString() ?? '') ?? DateTime.now(),
+              high: h,
+              low: l,
+              open: o,
+              close: c,
+              volume: 1.0,
+            );
+
+            final raw = List<Candle>.of([newCandle, ..._candles.where((c) => c.volume > 0 || c.date != newCandle.date)]);
+            if (raw.length > 200) raw.removeLast();
+            _candles = _safePadCandles(raw);
+          }
+        });
+      }
+    }
+  }
+
+  void _onProductUpdated(dynamic data) {
+    if (_isDisposed || !mounted) return;
+    if (data != null && data is Map) {
+      final updatedId = data['id'].toString();
+      setState(() {
+        final updatedItem = Map<String, dynamic>.from(data);
+        final existingIndex = _products.indexWhere((p) => p['id'].toString() == updatedId);
+        if (existingIndex != -1) {
+          _products[existingIndex] = updatedItem;
+        } else {
+          _products.insert(0, updatedItem);
+        }
+
+        if (_selectedProduct != null && _selectedProduct!['id'].toString() == updatedId) {
+          _selectedProduct = updatedItem;
+          _marketSentiment = data['market_sentiment']?.toString();
+          _currentPrice = _toDouble(data['price']);
+          _currentWeight = _toDouble(data['current_weight']);
+          _pricePerKg = _toDouble(data['price_per_kg']);
+        }
+      });
+    }
+  }
+
   void _initSocket() {
     final url = _apiClient.socketUrl;
     socket = IO.io(url, IO.OptionBuilder()
@@ -127,120 +237,18 @@ class _PasarModalPageState extends State<PasarModalPage> {
       .setReconnectionDelayMax(10000) // max delay 10 detik
       .build());
 
-    socket!.onConnect((_) {
-      debugPrint('✅ Socket.io terhubung');
-      if (mounted) {
-        setState(() {
-          _socketConnected = true;
-          _socketReconnecting = false;
-        });
-      }
-    });
+    socket!.on('connect', _onConnect);
+    socket!.on('disconnect', _onDisconnect);
+    socket!.on('reconnect', _onReconnect);
+    socket!.on('reconnect_error', _onReconnectError);
+    socket!.on('price-update-batch', _onPriceUpdateBatch);
+    socket!.on('product-updated', _onProductUpdated);
 
-    socket!.onDisconnect((_) {
-      debugPrint('⚠️ Socket.io terputus, menunggu reconnect...');
-      if (mounted) {
-        setState(() {
-          _socketConnected = false;
-          _socketReconnecting = true;
-        });
-      }
-    });
-
-    socket!.onReconnect((_) {
-      debugPrint('🔄 Socket.io berhasil reconnect');
-      if (mounted) {
-        setState(() {
-          _socketConnected = true;
-          _socketReconnecting = false;
-        });
-        // Refresh data setelah reconnect
-        if (_selectedProduct != null) {
-          _fetchHistory(_selectedProduct!['id']);
-        }
-      }
-    });
-
-    socket!.onReconnectError((error) {
-      debugPrint('❌ Socket.io gagal reconnect: $error');
-    });
-
-    socket!.on('price-update-batch', (dataList) {
-      if (dataList != null && dataList is List && _selectedProduct != null) {
-        final selectedId = _selectedProduct!['id'].toString();
-        final data = dataList.firstWhere(
-          (item) => item['productId'].toString() == selectedId,
-          orElse: () => null,
-        );
-
-        if (data != null) {
-          final newPrice = _toDouble(data['newPrice']);
-          final candleData = data['candle'];
-
-          if (!mounted) return;
-          setState(() {
-            _prevPrice = _currentPrice;
-            _currentPrice = newPrice;
-            _isPriceUp = _currentPrice >= _prevPrice;
-            _percentChange = _prevPrice > 0.01
-                ? ((_currentPrice - _prevPrice) / _prevPrice) * 100
-                : 0.0;
-            _marketSentiment = data['marketSentiment']?.toString();
-            _currentWeight = _toDouble(data['currentWeight']);
-            _pricePerKg = _toDouble(data['pricePerKg']);
-
-            if (candleData != null) {
-              double h = _toDouble(candleData['high']);
-              double l = _toDouble(candleData['low']);
-              double o = _toDouble(candleData['open']);
-              double c = _toDouble(candleData['close']);
-
-              if (h == l) { h += 1.0; l -= 1.0; }
-
-              final newCandle = Candle(
-                date: DateTime.tryParse(candleData['timestamp']?.toString() ?? '') ?? DateTime.now(),
-                high: h,
-                low: l,
-                open: o,
-                close: c,
-                volume: 1.0,
-              );
-
-              final raw = List<Candle>.of([newCandle, ..._candles.where((c) => c.volume > 0 || c.date != newCandle.date)]);
-              if (raw.length > 200) raw.removeLast();
-              _candles = _safePadCandles(raw);
-            }
-          });
-        }
-      }
-    });
-
-    socket!.on('product-updated', (data) {
-      if (data != null && data is Map) {
-        final updatedId = data['id'].toString();
-
-        if (!mounted) return;
-        setState(() {
-          final updatedItem = Map<String, dynamic>.from(data);
-          final existingIndex = _products.indexWhere((p) => p['id'].toString() == updatedId);
-          if (existingIndex != -1) {
-            _products[existingIndex] = updatedItem;
-          } else {
-            _products.insert(0, updatedItem);
-          }
-
-          if (_selectedProduct != null && _selectedProduct!['id'].toString() == updatedId) {
-            _selectedProduct = updatedItem;
-            _marketSentiment = data['market_sentiment']?.toString();
-            _currentPrice = _toDouble(data['price']);
-            _currentWeight = _toDouble(data['current_weight']);
-            _pricePerKg = _toDouble(data['price_per_kg']);
-          }
-        });
-      }
-    });
-
-    socket!.connect();
+    if (!socket!.connected) {
+      socket!.connect();
+    } else {
+      _onConnect(null);
+    }
   }
 
   Future<void> _fetchInitialData() async {
@@ -368,10 +376,14 @@ class _PasarModalPageState extends State<PasarModalPage> {
 
   @override
   void dispose() {
+    _isDisposed = true;
     if (socket != null) {
-      socket!.clearListeners();
-      socket!.disconnect();
-      socket!.dispose();
+      socket!.off('connect', _onConnect);
+      socket!.off('disconnect', _onDisconnect);
+      socket!.off('reconnect', _onReconnect);
+      socket!.off('reconnect_error', _onReconnectError);
+      socket!.off('price-update-batch', _onPriceUpdateBatch);
+      socket!.off('product-updated', _onProductUpdated);
     }
     _amountController.dispose();
     super.dispose();

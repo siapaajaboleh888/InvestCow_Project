@@ -31,7 +31,7 @@ const upload = multer({ storage });
 router.get('/products-public', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, name, ticker_code, description, price, prev_price, target_price, quota, image_url, cctv_url, market_sentiment, weight, health, age FROM products ORDER BY id DESC',
+      'SELECT id, name, ticker_code, description, price, prev_price, target_price, quota, image_url, cctv_url, market_sentiment, current_weight, daily_growth_rate, price_per_kg, health_score FROM products ORDER BY id DESC',
     );
     return res.json(rows);
   } catch (e) {
@@ -60,7 +60,7 @@ router.post(
 router.get('/products', authMiddleware, adminOnly, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, name, ticker_code, description, price, prev_price, target_price, quota, image_url, cctv_url, market_sentiment, weight, health, age FROM products ORDER BY id DESC',
+      'SELECT id, name, ticker_code, description, price, prev_price, target_price, quota, image_url, cctv_url, market_sentiment, current_weight, daily_growth_rate, price_per_kg, health_score FROM products ORDER BY id DESC',
     );
     return res.json(rows);
   } catch (e) {
@@ -136,15 +136,18 @@ router.put('/products/:id', authMiddleware, adminOnly, async (req, res) => {
 
     const finalPrice = price !== undefined ? price : oldProduct.price;
     const oldPrice = oldProduct.price;
+    const currentWeight = oldProduct.current_weight || 300;
+    const newPricePerKg = finalPrice / currentWeight;
 
     const [result] = await pool.query(
-      'UPDATE products SET name = :name, ticker_code = :ticker_code, description = :description, price = :price, prev_price = :prev_price, target_price = :target_price, quota = :quota, image_url = :image_url, cctv_url = :cctv_url, market_sentiment = :market_sentiment, investor_share_ratio = :investor_share_ratio WHERE id = :id',
+      'UPDATE products SET name = :name, ticker_code = :ticker_code, description = :description, price = :price, price_per_kg = :price_per_kg, prev_price = :prev_price, target_price = :target_price, quota = :quota, image_url = :image_url, cctv_url = :cctv_url, market_sentiment = :market_sentiment, investor_share_ratio = :investor_share_ratio WHERE id = :id',
       {
         id,
         name: name || oldProduct.name,
         ticker_code: ticker_code || oldProduct.ticker_code,
         description: description !== undefined ? description : oldProduct.description,
         price: finalPrice,
+        price_per_kg: newPricePerKg,
         prev_price: oldPrice, 
         target_price: target_price !== undefined ? target_price : oldProduct.target_price,
         quota: quota !== undefined ? quota : oldProduct.quota,
