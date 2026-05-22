@@ -368,8 +368,11 @@ class _PasarModalPageState extends State<PasarModalPage> {
 
   @override
   void dispose() {
-    socket?.disconnect();
-    socket?.dispose();
+    if (socket != null) {
+      socket!.clearListeners();
+      socket!.disconnect();
+      socket!.dispose();
+    }
     _amountController.dispose();
     super.dispose();
   }

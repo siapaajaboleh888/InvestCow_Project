@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 class CctvLivePlayer extends StatefulWidget {
   final String streamUrl;
@@ -33,22 +33,22 @@ class _CctvLivePlayerState extends State<CctvLivePlayer> {
   void initState() {
     super.initState();
     final videoId = _extractVideoId(widget.streamUrl);
-    _controller = YoutubePlayerController.fromVideoId(
-      videoId: videoId,
-      autoPlay: true,
-      params: const YoutubePlayerParams(
-        showControls: true,
+    _controller = YoutubePlayerController(
+      initialVideoId: videoId,
+      flags: const YoutubePlayerFlags(
+        autoPlay: true,
         mute: true,
-        showFullscreenButton: true,
-        showVideoAnnotations: false,
-        strictRelatedVideos: true,
+        isLive: true,
+        forceHD: true,
+        enableCaption: false,
+        disableDragSeek: true,
       ),
     );
   }
 
   @override
   void dispose() {
-    _controller.close(); // ✅ Penting: tutup controller agar tidak memory leak
+    _controller.dispose();
     super.dispose();
   }
 
@@ -82,10 +82,14 @@ class _CctvLivePlayerState extends State<CctvLivePlayer> {
           aspectRatio: 16 / 9,
           child: Container(
             color: Colors.black,
-            child: YoutubePlayerScaffold(
+            child: YoutubePlayer(
               controller: _controller,
-              aspectRatio: 16 / 9,
-              builder: (context, player) => player,
+              showVideoProgressIndicator: false,
+              bottomActions: [
+                CurrentPosition(),
+                ProgressBar(isExpanded: true),
+                FullScreenButton(),
+              ],
             ),
           ),
         ),

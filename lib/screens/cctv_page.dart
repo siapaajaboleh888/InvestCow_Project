@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
 import 'dart:convert';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_client.dart';
 
@@ -333,11 +333,39 @@ class _CctvPageState extends State<CctvPage> {
     );
   }
 
-  void _showStreamDialog(Map<String, dynamic> cctv) {
-    showDialog(
-      context: context,
-      builder: (context) => CctvStreamDialog(cow: cctv),
-    );
+  void _showStreamDialog(Map<String, dynamic> cctv) async {
+    final String? cctvUrl = cctv['cctv_url']?.toString();
+    if (cctvUrl == null || cctvUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('CCTV tidak tersedia untuk sapi ini')),
+      );
+      return;
+    }
+
+    if (kIsWeb) {
+      showDialog(
+        context: context,
+        builder: (context) => CctvStreamDialog(cow: cctv),
+      );
+    } else {
+      // Buka langsung di mobile dengan inAppBrowserView seperti di kandang
+      String finalUrl = cctvUrl;
+      if (cctvUrl.startsWith('youtube://')) {
+        final id = cctvUrl.replaceFirst('youtube://', '');
+        finalUrl = 'https://www.youtube.com/watch?v=$id';
+      } else if (cctvUrl.contains('youtu.be/')) {
+        final id = cctvUrl.split('youtu.be/').last.split('?').first.trim();
+        finalUrl = 'https://www.youtube.com/watch?v=$id';
+      }
+      final uri = Uri.parse(finalUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal membuka URL CCTV')),
+        );
+      }
+    }
   }
 }
 
@@ -401,7 +429,7 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
     }
 
     // Cancel previous resources
-    _ytController?.close();
+    _ytController?.dispose();
     _ytController = null;
     _timeoutTimer?.cancel();
     _bufferingTimer?.cancel();
@@ -418,61 +446,19 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
 
     debugPrint('📺 CCTV init YouTube ID: $id (attempt ${_retryCount + 1})');
 
-    _ytController = YoutubePlayerController.fromVideoId(
-      videoId: id,
-      autoPlay: true,
-      params: const YoutubePlayerParams(
-        showControls: true,
-        showFullscreenButton: true,
+    _ytController = YoutubePlayerController(
+      initialVideoId: id,
+      flags: const YoutubePlayerFlags(
+        autoPlay: true,
         mute: false,
+        isLive: true,
+        forceHD: true,
         enableCaption: false,
-        showVideoAnnotations: false,
-        strictRelatedVideos: true,
-        // Tanpa origin agar tidak ada CORS block di perangkat nyata
+        disableDragSeek: true,
       ),
     );
 
-    // Listen player state untuk deteksi error dengan benar
-    _ytController!.listen((state) {
-      if (!mounted) return;
-
-      // Deteksi error berdasarkan playerState dan error code
-      final hasError = state.error != YoutubeError.none;
-      if (hasError && _status != _PlayerStatus.error) {
-        debugPrint('❌ CCTV YouTube error: ${state.error}');
-        _handlePlaybackError('YouTube error: ${state.error.name}');
-        return;
-      }
-
-      // Deteksi buffering terhenti (watchdog)
-      if (state.playerState == PlayerState.buffering) {
-        if (_bufferingTimer == null || !_bufferingTimer!.isActive) {
-          debugPrint('⏱ CCTV buffering detected, starting 15s watchdog...');
-          _bufferingTimer = Timer(const Duration(seconds: 15), () {
-            if (mounted && _status == _PlayerStatus.ready) {
-              debugPrint('⏱ CCTV buffering watchdog fired after 15 seconds');
-              _handlePlaybackError('Koneksi tidak stabil / buffering terhenti');
-            }
-          });
-        }
-      } else if (state.playerState == PlayerState.playing) {
-        _bufferingTimer?.cancel();
-        _bufferingTimer = null;
-
-        if (_status == _PlayerStatus.loading) {
-          _timeoutTimer?.cancel();
-          if (mounted) {
-            setState(() {
-              _status = _PlayerStatus.ready;
-              _retryCount = 0; // reset retry setelah berhasil
-            });
-          }
-        }
-      } else if (state.playerState == PlayerState.paused) {
-        _bufferingTimer?.cancel();
-        _bufferingTimer = null;
-      }
-    });
+    _ytController!.addListener(_youtubeListener);
 
     // Timeout 20 detik — jika tidak playing, anggap gagal
     _timeoutTimer = Timer(const Duration(seconds: 20), () {
@@ -482,14 +468,61 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
       }
     });
 
-    // Mark as ready to show player (player iframe sudah terpasang)
-    // Status tetap loading sampai player benar-benar playing atau error
     if (mounted) setState(() {});
+  }
+
+  void _youtubeListener() {
+    if (!mounted || _ytController == null) return;
+    
+    final state = _ytController!.value;
+    
+    // Check for errors
+    if (state.hasError && _status != _PlayerStatus.error && _status != _PlayerStatus.reconnecting) {
+      debugPrint('❌ CCTV YouTube error: ${state.errorCode}');
+      _handlePlaybackError('Koneksi terputus: ${state.errorCode}');
+      return;
+    }
+
+    // Check playing state
+    if (state.playerState == PlayerState.buffering) {
+      if (_bufferingTimer == null || !_bufferingTimer!.isActive) {
+        debugPrint('⏱ CCTV buffering detected, starting 15s watchdog...');
+        _bufferingTimer = Timer(const Duration(seconds: 15), () {
+          if (mounted && _status == _PlayerStatus.ready) {
+            debugPrint('⏱ CCTV buffering watchdog fired after 15 seconds');
+            _handlePlaybackError('Koneksi tidak stabil / buffering terhenti');
+          }
+        });
+      }
+    } else if (state.playerState == PlayerState.playing) {
+      _bufferingTimer?.cancel();
+      _bufferingTimer = null;
+
+      if (_status == _PlayerStatus.loading || _status == _PlayerStatus.reconnecting) {
+        _timeoutTimer?.cancel();
+        if (mounted) {
+          setState(() {
+            _status = _PlayerStatus.ready;
+            _retryCount = 0; // reset retry setelah berhasil
+          });
+        }
+      }
+    } else if (state.playerState == PlayerState.paused) {
+      _bufferingTimer?.cancel();
+      _bufferingTimer = null;
+    }
   }
 
   void _handlePlaybackError(String reason) {
     _timeoutTimer?.cancel();
     _retryTimer?.cancel();
+    _bufferingTimer?.cancel();
+    _bufferingTimer = null;
+
+    // Remove listener to prevent rapid firing during dispose
+    _ytController?.removeListener(_youtubeListener);
+    _ytController?.dispose();
+    _ytController = null;
 
     if (_retryCount < _maxRetries) {
       _retryCount++;
@@ -504,7 +537,10 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
 
       // Countdown timer
       _retryTimer = Timer.periodic(const Duration(seconds: 1), (t) {
-        if (!mounted) { t.cancel(); return; }
+        if (!mounted) {
+          t.cancel();
+          return;
+        }
         _retryCountdown--;
         if (_retryCountdown <= 0) {
           t.cancel();
@@ -520,7 +556,7 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
       if (mounted) {
         setState(() {
           _status = _PlayerStatus.error;
-          _statusMessage = 'Gagal terhubung setelah $_maxRetries percobaan.\nYouTube mungkin membatasi playback di perangkat ini.';
+          _statusMessage = 'Gagal terhubung setelah $_maxRetries percobaan.\nStream mungkin tidak tersedia.';
         });
       }
     }
@@ -530,6 +566,8 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
     _retryCount = 0;
     _retryTimer?.cancel();
     _timeoutTimer?.cancel();
+    _bufferingTimer?.cancel();
+    _bufferingTimer = null;
     _initPlayer();
   }
 
@@ -550,7 +588,8 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
     _retryTimer?.cancel();
     _timeoutTimer?.cancel();
     _bufferingTimer?.cancel();
-    _ytController?.close();
+    _ytController?.removeListener(_youtubeListener);
+    _ytController?.dispose();
     super.dispose();
   }
 
@@ -569,7 +608,6 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
               onPressed: () => Navigator.pop(context),
             ),
             actions: [
-              // Tombol buka di YouTube selalu tersedia
               IconButton(
                 icon: const Icon(Icons.open_in_new),
                 tooltip: 'Buka di YouTube',
@@ -580,7 +618,6 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
           Expanded(
             child: _buildBody(),
           ),
-          // Status bar bawah
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             color: Colors.white10,
@@ -628,7 +665,6 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
       case _PlayerStatus.loading:
         return Stack(
           children: [
-            // Tampilkan player di balik loading agar cepat siap
             if (_ytController != null)
               Opacity(
                 opacity: 0.0,
@@ -737,10 +773,23 @@ class _CctvStreamDialogState extends State<CctvStreamDialog> {
 
   Widget _buildYoutubePlayer() {
     if (_ytController == null) return const SizedBox.shrink();
-    return YoutubePlayerScaffold(
+    return YoutubePlayer(
       controller: _ytController!,
-      aspectRatio: 16 / 9,
-      builder: (context, player) => player,
+      showVideoProgressIndicator: false,
+      bottomActions: [
+        const SizedBox(width: 14.0),
+        CurrentPosition(),
+        const SizedBox(width: 8.0),
+        ProgressBar(
+          isExpanded: true,
+          colors: const ProgressBarColors(
+            playedColor: Colors.cyan,
+            handleColor: Colors.cyanAccent,
+          ),
+        ),
+        const SizedBox(width: 8.0),
+        FullScreenButton(),
+      ],
     );
   }
 }
