@@ -41,150 +41,30 @@ class _KunjunganPageState extends State<KunjunganPage> {
   }
 
   // Fungsi untuk membuka dialog penjadwalan
-  void _bukaDialogJadwal() {
-    DateTime selectedDate = DateTime.now();
-    TimeOfDay selectedTime = TimeOfDay.now();
-    final TextEditingController namaController = TextEditingController();
-    final TextEditingController telpController = TextEditingController();
-    final TextEditingController keteranganController = TextEditingController();
-
-    showDialog(
+  Future<void> _bukaDialogJadwal() async {
+    final result = await showDialog<JadwalKunjunganResult>(
       context: context,
       builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Jadwalkan Kunjungan'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: namaController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nama Lengkap',
-                        prefixIcon: Icon(Icons.person),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: telpController,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        labelText: 'No. Telepon/WhatsApp',
-                        prefixIcon: Icon(Icons.phone),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.calendar_today),
-                      title: const Text('Tanggal Kunjungan'),
-                      subtitle: Text(
-                        DateFormat('dd MMMM yyyy').format(selectedDate),
-                      ),
-                      onTap: () async {
-                        final DateTime? picked = await showDatePicker(
-                          context: context,
-                          initialDate: selectedDate,
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(
-                            const Duration(days: 90),
-                          ),
-                        );
-                        if (picked != null) {
-                          setDialogState(() {
-                            selectedDate = picked;
-                          });
-                        }
-                      },
-                    ),
-                    const Divider(),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.access_time),
-                      title: const Text('Waktu Kunjungan'),
-                      subtitle: Text(selectedTime.format(context)),
-                      onTap: () async {
-                        final TimeOfDay? picked = await showTimePicker(
-                          context: context,
-                          initialTime: selectedTime,
-                        );
-                        if (picked != null) {
-                          setDialogState(() {
-                            selectedTime = picked;
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: keteranganController,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        labelText: 'Keperluan/Keterangan',
-                        prefixIcon: Icon(Icons.notes),
-                        border: OutlineInputBorder(),
-                        hintText:
-                            'Misal: Ingin melihat kambing, beli kambing, dll',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Batal'),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.cyan[400],
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () {
-                    if (namaController.text.isEmpty ||
-                        telpController.text.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Nama dan No. Telepon harus diisi'),
-                        ),
-                      );
-                      return;
-                    }
-
-                    // Kirim konfirmasi via WhatsApp
-                    _kirimKonfirmasiWhatsApp(
-                      namaController.text,
-                      telpController.text,
-                      selectedDate,
-                      selectedTime,
-                      keteranganController.text,
-                    );
-
-                    Navigator.pop(dialogContext);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Jadwal kunjungan berhasil dibuat!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  },
-                  child: const Text('Konfirmasi'),
-                ),
-              ],
-            );
-          },
-        );
+        return const _JadwalDialog();
       },
-    ).then((_) {
-      namaController.dispose();
-      telpController.dispose();
-      keteranganController.dispose();
-    });
+    );
+
+    if (result != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Jadwal kunjungan berhasil dibuat!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      _kirimKonfirmasiWhatsApp(
+        result.nama,
+        result.telp,
+        result.tanggal,
+        result.waktu,
+        result.keterangan,
+      );
+    }
   }
 
   // Fungsi untuk mengirim konfirmasi via WhatsApp
@@ -198,6 +78,11 @@ class _KunjunganPageState extends State<KunjunganPage> {
     // Ganti dengan nomor WhatsApp pemilik kandang
     const String nomorPemilik = '6285334159328';
 
+    // Format waktu manual untuk menghindari penggunaan context di luar build scope
+    final String jam = waktu.hour.toString().padLeft(2, '0');
+    final String menit = waktu.minute.toString().padLeft(2, '0');
+    final String waktuStr = '$jam:$menit WIB';
+
     final String pesan =
         '''
 Halo, saya ingin jadwalkan kunjungan:
@@ -205,7 +90,7 @@ Halo, saya ingin jadwalkan kunjungan:
 Nama: $nama
 No. Telepon: $telp
 Tanggal: ${DateFormat('dd MMMM yyyy').format(tanggal)}
-Waktu: ${waktu.format(context)}
+Waktu: $waktuStr
 Keperluan: ${keterangan.isEmpty ? '-' : keterangan}
 
 Terima kasih.
@@ -491,6 +376,178 @@ Terima kasih.
           ),
         ],
       ),
+    );
+  }
+}
+
+class JadwalKunjunganResult {
+  final String nama;
+  final String telp;
+  final DateTime tanggal;
+  final TimeOfDay waktu;
+  final String keterangan;
+
+  JadwalKunjunganResult({
+    required this.nama,
+    required this.telp,
+    required this.tanggal,
+    required this.waktu,
+    required this.keterangan,
+  });
+}
+
+class _JadwalDialog extends StatefulWidget {
+  const _JadwalDialog();
+
+  @override
+  State<_JadwalDialog> createState() => _JadwalDialogState();
+}
+
+class _JadwalDialogState extends State<_JadwalDialog> {
+  late final TextEditingController _namaController;
+  late final TextEditingController _telpController;
+  late final TextEditingController _keteranganController;
+  late DateTime _selectedDate;
+  late TimeOfDay _selectedTime;
+
+  @override
+  void initState() {
+    super.initState();
+    _namaController = TextEditingController();
+    _telpController = TextEditingController();
+    _keteranganController = TextEditingController();
+    _selectedDate = DateTime.now();
+    _selectedTime = TimeOfDay.now();
+  }
+
+  @override
+  void dispose() {
+    _namaController.dispose();
+    _telpController.dispose();
+    _keteranganController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Jadwalkan Kunjungan'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _namaController,
+              decoration: const InputDecoration(
+                labelText: 'Nama Lengkap',
+                prefixIcon: Icon(Icons.person),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _telpController,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'No. Telepon/WhatsApp',
+                prefixIcon: Icon(Icons.phone),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.calendar_today),
+              title: const Text('Tanggal Kunjungan'),
+              subtitle: Text(
+                DateFormat('dd MMMM yyyy').format(_selectedDate),
+              ),
+              onTap: () async {
+                final DateTime? picked = await showDatePicker(
+                  context: context,
+                  initialDate: _selectedDate,
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime.now().add(
+                    const Duration(days: 90),
+                  ),
+                );
+                if (picked != null) {
+                  setState(() {
+                    _selectedDate = picked;
+                  });
+                }
+              },
+            ),
+            const Divider(),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.access_time),
+              title: const Text('Waktu Kunjungan'),
+              subtitle: Text(
+                '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
+              ),
+              onTap: () async {
+                final TimeOfDay? picked = await showTimePicker(
+                  context: context,
+                  initialTime: _selectedTime,
+                );
+                if (picked != null) {
+                  setState(() {
+                    _selectedTime = picked;
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _keteranganController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Keperluan/Keterangan',
+                prefixIcon: Icon(Icons.notes),
+                border: OutlineInputBorder(),
+                hintText:
+                    'Misal: Ingin melihat kambing, beli kambing, dll',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.cyan[400],
+            foregroundColor: Colors.white,
+          ),
+          onPressed: () {
+            if (_namaController.text.isEmpty ||
+                _telpController.text.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Nama dan No. Telepon harus diisi'),
+                ),
+              );
+              return;
+            }
+
+            final result = JadwalKunjunganResult(
+              nama: _namaController.text,
+              telp: _telpController.text,
+              tanggal: _selectedDate,
+              waktu: _selectedTime,
+              keterangan: _keteranganController.text,
+            );
+
+            Navigator.pop(context, result);
+          },
+          child: const Text('Konfirmasi'),
+        ),
+      ],
     );
   }
 }
