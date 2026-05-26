@@ -261,9 +261,17 @@ class _PengaturanPageState extends State<PengaturanPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Hapus Cache'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.delete_sweep_outlined, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Hapus Cache'),
+          ],
+        ),
         content: const Text(
-          'Apakah Anda yakin ingin menghapus semua cache aplikasi?',
+          'Ini akan menghapus data cache lokal aplikasi (berita tersimpan, data sementara).\n\n'
+          'Data akun, transaksi, dan portofolio Anda TIDAK akan terhapus karena tersimpan di server.',
         ),
         actions: [
           TextButton(
@@ -271,18 +279,75 @@ class _PengaturanPageState extends State<PengaturanPage> {
             child: const Text('Batal'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Cache berhasil dihapus')),
-              );
+              await _hapusCache();
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Hapus'),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Hapus Cache'),
           ),
         ],
       ),
     );
+  }
+
+  /// Hapus cache lokal dengan AMAN — data akun user tetap terlindungi
+  Future<void> _hapusCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // 🔒 Simpan dulu semua data kritis user
+      final token          = prefs.getString('auth_token');
+      final userName       = prefs.getString('user_name');
+      final userEmail      = prefs.getString('user_email');
+      final userRole       = prefs.getString('user_role');
+      final userId         = prefs.getString('user_id');
+      final profilePic     = prefs.getString('profile_picture');
+      final displayName    = prefs.getString('display_name');
+      final rememberEmail  = prefs.getString('remembered_email');
+      final rememberMe     = prefs.getBool('remember_me');
+
+      // 🗑️ Hapus SEMUA data lokal (cache, data sementara, dll)
+      await prefs.clear();
+
+      // 🔒 Kembalikan data kritis user agar tidak logout
+      if (token       != null) await prefs.setString('auth_token',       token);
+      if (userName    != null) await prefs.setString('user_name',        userName);
+      if (userEmail   != null) await prefs.setString('user_email',       userEmail);
+      if (userRole    != null) await prefs.setString('user_role',        userRole);
+      if (userId      != null) await prefs.setString('user_id',          userId);
+      if (profilePic  != null) await prefs.setString('profile_picture',  profilePic);
+      if (displayName != null) await prefs.setString('display_name',     displayName);
+      if (rememberEmail != null) await prefs.setString('remembered_email', rememberEmail);
+      if (rememberMe  != null) await prefs.setBool('remember_me',        rememberMe);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Cache berhasil dihapus. Data akun Anda aman.'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal menghapus cache: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _exportData() async {
