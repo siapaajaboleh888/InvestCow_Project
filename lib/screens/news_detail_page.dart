@@ -6,6 +6,65 @@ class NewsDetailPage extends StatelessWidget {
 
   const NewsDetailPage({super.key, required this.news});
 
+  /// Cek apakah URL berasal dari domain internal investcow.id
+  /// (domain ini belum live, jadi tidak perlu dibuka di browser)
+  bool _isInternalUrl(String url) {
+    try {
+      final uri = Uri.parse(url);
+      return uri.host.contains('investcow.id');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _openUrl(BuildContext context, String urlStr) async {
+    // Jika URL internal investcow.id, kontennya sudah ditampilkan di app
+    if (_isInternalUrl(urlStr)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Konten ini eksklusif dari InvestCow dan sudah ditampilkan di halaman ini.'),
+          duration: Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final uri = Uri.parse(urlStr);
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.inAppBrowserView,
+      );
+      if (!launched && context.mounted) {
+        // Fallback ke external application jika inAppBrowserView gagal
+        final launchedExternal = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (!launchedExternal && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Tidak dapat membuka: $urlStr'),
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal membuka tautan berita. Periksa koneksi internet Anda.'),
+            duration: Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final Color accentColor = news['logoColor'] != null
@@ -140,21 +199,17 @@ class NewsDetailPage extends StatelessWidget {
                       ],
 
                       const SizedBox(height: 32),
-                      // Action Button to Source
-                      if (news['url'] != null)
+                      // Action Button to Source — hanya tampil jika bukan URL internal
+                      if (news['url'] != null && !_isInternalUrl(news['url'].toString()))
                         Center(
-                          child: OutlinedButton(
-                            onPressed: () async {
-                              final uri = Uri.parse(news['url']);
-                              if (await canLaunchUrl(uri)) {
-                                await launchUrl(uri);
-                              }
-                            },
+                          child: OutlinedButton.icon(
+                            onPressed: () => _openUrl(context, news['url'].toString()),
+                            icon: const Icon(Icons.open_in_browser, size: 18),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
-                            child: const Text('Baca Selengkapnya di Sumber Asli'),
+                            label: const Text('Baca Selengkapnya di Sumber Asli'),
                           ),
                         ),
                       const SizedBox(height: 40),
