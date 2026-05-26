@@ -34,16 +34,12 @@ class _PengaturanPageState extends State<PengaturanPage> {
             value: notifikasiAktif,
             activeThumbColor: Colors.cyan[400],
             onChanged: (value) {
-              setState(() {
-                notifikasiAktif = value;
-              });
+              // Revert toggle state to visually indicate it's not actually active yet
+              setState(() {}); 
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    value
-                        ? 'Notifikasi diaktifkan'
-                        : 'Notifikasi dinonaktifkan',
-                  ),
+                const SnackBar(
+                  content: Text('Fitur Notifikasi Push segera hadir di versi berikutnya!'),
+                  behavior: SnackBarBehavior.floating,
                 ),
               );
             },
@@ -59,14 +55,12 @@ class _PengaturanPageState extends State<PengaturanPage> {
             value: darkModeAktif,
             activeThumbColor: Colors.cyan[400],
             onChanged: (value) {
-              setState(() {
-                darkModeAktif = value;
-              });
+              // Revert toggle state to visually indicate it's not actually active yet
+              setState(() {});
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    value ? 'Dark mode diaktifkan' : 'Dark mode dinonaktifkan',
-                  ),
+                const SnackBar(
+                  content: Text('Tema Gelap (Dark Mode) segera hadir di versi berikutnya!'),
+                  behavior: SnackBarBehavior.floating,
                 ),
               );
             },
@@ -174,11 +168,11 @@ class _PengaturanPageState extends State<PengaturanPage> {
           ListTile(
             leading: Icon(Icons.storage, color: Colors.cyan[400]),
             title: const Text('Kelola Penyimpanan'),
-            subtitle: const Text('1.2 GB digunakan'),
+            subtitle: const Text('Lihat detail penggunaan memori lokal'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Membuka Kelola Penyimpanan')),
+                const SnackBar(content: Text('Fitur Kelola Penyimpanan sedang dalam tahap optimalisasi.')),
               );
             },
           ),
