@@ -58,19 +58,8 @@ class _KasPageState extends State<KasPage> {
             final idStr = id?.toString() ?? '';
             final idInt = int.tryParse(idStr) ?? 0;
             
-            // 1. Skip if deleted locally
+            // 1. Skip if deleted locally (do not adjust balance — delete is display-only)
             if (id != null && deletedIds.contains(idInt)) {
-              final type = t['type']?.toString().toLowerCase();
-              final isTopUp = type == 'topup' || type == 'deposit';
-              double nominal = _toDouble(t['amount']);
-              if (nominal <= 0) {
-                nominal = _toDouble(t['quantity']) * _toDouble(t['price']);
-              }
-              if (isTopUp) {
-                adjustment -= nominal;
-              } else {
-                adjustment += nominal;
-              }
               continue;
             }
             
@@ -427,60 +416,7 @@ class _KasPageState extends State<KasPage> {
                       ),
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(16),
-                        onTap: () async {
-                          // Edit nominal sederhana
-                          final controller = TextEditingController(
-                            text: _toDouble(transaksi['nominal']).toStringAsFixed(0),
-                          );
-                          final changed = await showDialog<double>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('Edit nominal'),
-                              content: TextField(
-                                controller: controller,
-                                keyboardType: TextInputType.number,
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(ctx),
-                                  child: const Text('Batal'),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    final v = double.tryParse(controller.text);
-                                    if (v != null && v > 0) {
-                                      Navigator.pop(ctx, v);
-                                    }
-                                  },
-                                  child: const Text('Simpan'),
-                                )
-                              ],
-                            ),
-                          );
-                          if (changed != null) {
-                            setState(() {
-                              final idx = riwayatTransaksi.indexOf(transaksi);
-                              final old = _toDouble(riwayatTransaksi[idx]['nominal']);
-                              riwayatTransaksi[idx]['nominal'] = changed;
-                              if (transaksi['jenis'] == 'Top Up') {
-                                saldoKas += (changed - old);
-                              } else {
-                                saldoKas -= (changed - old);
-                              }
-                            });
-                            
-                            // Save to SharedPreferences
-                            final id = transaksi['id'];
-                            if (id != null) {
-                              final prefs = await SharedPreferences.getInstance();
-                              final editsStr = prefs.getString('kas_edits') ?? '{}';
-                              final Map<String, dynamic> localEdits = jsonDecode(editsStr);
-                              localEdits[id.toString()] = changed;
-                              await prefs.setString('kas_edits', jsonEncode(localEdits));
-                            }
-                            await _saveKasData();
-                          }
-                        },
+                        onTap: null,
                         onLongPress: () async {
                           final ok = await showDialog<bool>(
                             context: context,
@@ -502,16 +438,11 @@ class _KasPageState extends State<KasPage> {
                           if (ok == true) {
                             setState(() {
                               final idx = riwayatTransaksi.indexOf(transaksi);
-                              final removed = riwayatTransaksi.removeAt(idx);
-                              final amount = _toDouble(removed['nominal']);
-                              if (removed['jenis'] == 'Top Up') {
-                                saldoKas -= amount;
-                              } else {
-                                saldoKas += amount;
-                              }
+                              // Remove from display only — saldo tidak berubah
+                              riwayatTransaksi.removeAt(idx);
                             });
                             
-                            // Save delete to SharedPreferences
+                            // Save delete to SharedPreferences (display-only, no balance change)
                             final id = transaksi['id'];
                             if (id != null) {
                               final prefs = await SharedPreferences.getInstance();

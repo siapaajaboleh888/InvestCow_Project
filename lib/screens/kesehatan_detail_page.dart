@@ -366,18 +366,17 @@ class _KesehatanDetailPageState extends State<KesehatanDetailPage> {
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.assignment_turned_in_outlined, color: statusColor, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      req['request_type'],
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: statusColor.darker(0.2)),
-                    ),
-                  ],
+                Icon(Icons.assignment_turned_in_outlined, color: statusColor, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    req['request_type'],
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: statusColor.darker(0.2)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
