@@ -14,13 +14,22 @@ const adminRoutes = require('./routes/admin');
 const newsRoutes = require('./routes/news');
 
 const app = express();
+
+// Trust proxy: agar req.get('host') & req.protocol mengembalikan domain ngrok
+// Ini WAJIB agar URL gambar upload tampil benar di HP user (bukan localhost)
+app.set('trust proxy', 1);
 const http = require('http');
 const server = http.createServer(app);
 const { Server } = require('socket.io');
 
+const allowedOrigins = process.env.ALLOWED_ORIGINS;
+const corsOrigin = (allowedOrigins && allowedOrigins !== '*')
+  ? allowedOrigins.split(',')
+  : '*';
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*',
+    origin: corsOrigin,
     methods: ['GET', 'POST'],
   },
 });
@@ -31,31 +40,31 @@ PriceEngine.init(io);
 
 // RATE LIMITING
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 250, // Limit each IP to 250 requests per window
+  windowMs: 15 * 60 * 1000, // 15 menit
+  max: 1000, // Dinaikkan: 1000 req/15 menit per IP (cukup untuk 40 user di 1 jaringan)
   standardHeaders: true,
   legacyHeaders: false,
-  message: { message: 'Too many requests, please try again later.' },
+  message: { message: 'Terlalu banyak permintaan. Coba lagi beberapa menit.' },
 });
 
 const authLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 100, // Increased for development/testing
+  windowMs: 60 * 60 * 1000, // 1 jam
+  max: 300, // Dinaikkan: 300 login/jam per IP (cukup untuk 40 user login bersamaan)
   standardHeaders: true,
   legacyHeaders: false,
-  message: { message: 'Auth limit reached (max 100/hour). Please wait an hour or restart backend.' },
+  message: { message: 'Terlalu banyak percobaan login. Coba lagi nanti.' },
 });
 
 app.use(helmet({
   crossOriginResourcePolicy: false,
 }));
 
+app.use(cors({
+  origin: corsOrigin
+}));
+
 // Apply global rate limit to all routes
 app.use(globalLimiter);
-
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*'
-}));
 
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ limit: '5mb', extended: true }));

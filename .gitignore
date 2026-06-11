@@ -76,5 +76,16 @@ yt_search.html
 
 # Production Logs
 backend/logs/
+# Large SQL backup files (jangan di-push ke GitHub)
+backend/*.sql
+backend/schema_output.txt
+backend/analyze_output.txt
+analyze_output.txt
 
+# Personal notes & research files
+artikel_pendahuluan.txt
+roi*.txt
 
+# Temp files
+*.tmp
+*.bak
